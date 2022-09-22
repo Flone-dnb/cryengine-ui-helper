@@ -13,6 +13,7 @@ use layouts::main_layout::*;
 use misc::theme::*;
 
 mod layouts;
+mod managers;
 mod misc;
 
 #[derive(Clone, Copy, Data, PartialEq, Eq)]
