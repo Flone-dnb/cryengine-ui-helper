@@ -2,6 +2,7 @@
 // On Windows platform, don't show a console when opening the app.
 #![windows_subsystem = "windows"]
 
+use druid::Lens;
 // External.
 use druid::widget::prelude::*;
 use druid::widget::ViewSwitcher;
@@ -21,7 +22,7 @@ pub enum Layout {
     Main,
 }
 
-#[derive(Clone, Data)]
+#[derive(Clone, Data, Lens)]
 pub struct ApplicationState {
     current_layout: Layout,
 
