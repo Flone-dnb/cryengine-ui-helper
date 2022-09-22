@@ -36,7 +36,7 @@ pub struct ApplicationState {
 fn main() {
     let window_size = Size {
         width: 700.0,
-        height: 600.0,
+        height: 700.0,
     };
 
     let (w, h) = display_size().unwrap();
