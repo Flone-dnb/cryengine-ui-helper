@@ -8,7 +8,7 @@ use crate::ApplicationState;
 
 // Layout customization.
 const TEXT_SIZE: f64 = 18.0;
-const SMALL_TEXT_SIZE: f64 = 14.0;
+const SMALL_TEXT_SIZE: f64 = 15.0;
 const LEFT_COLUMN_SIZE: f64 = 0.4;
 const RIGHT_COLUMN_SIZE: f64 = 0.6;
 
@@ -74,6 +74,8 @@ impl MainLayout {
                     1.0,
                 )
                 .with_default_spacer()
+                .with_default_spacer()
+                .with_default_spacer()
                 .with_flex_child(
                     Flex::row()
                         .with_flex_child(
@@ -88,6 +90,27 @@ impl MainLayout {
                         .with_flex_child(
                             Label::new(|data: &ApplicationState, _env: &_| {
                                 data.main_layout.path_to_gfx_dir.clone()
+                            })
+                            .with_text_size(SMALL_TEXT_SIZE),
+                            RIGHT_COLUMN_SIZE,
+                        ),
+                    1.0,
+                )
+                .with_default_spacer()
+                .with_flex_child(
+                    Flex::row()
+                        .with_flex_child(
+                            Button::from_label(
+                                Label::new("Output directory for .xml files:")
+                                    .with_text_size(TEXT_SIZE),
+                            )
+                            .on_click(MainLayout::on_select_xml_clicked),
+                            LEFT_COLUMN_SIZE,
+                        )
+                        .with_default_spacer()
+                        .with_flex_child(
+                            Label::new(|data: &ApplicationState, _env: &_| {
+                                data.main_layout.path_to_xml_dir.clone()
                             })
                             .with_text_size(SMALL_TEXT_SIZE),
                             RIGHT_COLUMN_SIZE,
@@ -130,19 +153,27 @@ impl MainLayout {
         // Save.
         data.main_layout.path_to_swf_file = path.to_string_lossy().to_string();
 
-        if data.main_layout.path_to_gfx_dir.is_empty()
-            && path.parent().is_some()
-            && path.parent().unwrap().parent().is_some()
-        {
-            // Set path to .gfx files one directory above.
-            data.main_layout.path_to_gfx_dir = path
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .to_string_lossy()
-                .to_string();
+        if path.parent().is_some() && path.parent().unwrap().parent().is_some() {
+            // Set path to .gfx and .xml files.
+            let path_to_gfx = path.parent().unwrap().parent().unwrap();
+            let mut path_to_xml = path_to_gfx.to_path_buf();
+            path_to_xml.push("UIElements");
+
+            data.main_layout.path_to_gfx_dir = path_to_gfx.to_string_lossy().to_string();
+            data.main_layout.path_to_xml_dir = path_to_xml.to_string_lossy().to_string();
         }
+    }
+
+    fn on_select_xml_clicked(_ctx: &mut EventCtx, data: &mut ApplicationState, _env: &Env) {
+        // Get path to output .xml files.
+        let path = FileDialog::new().show_open_single_dir().unwrap();
+        if path.is_none() {
+            return;
+        }
+        let path = path.unwrap();
+
+        // Save.
+        data.main_layout.path_to_xml_dir = path.to_string_lossy().to_string();
     }
 
     fn on_select_gfx_clicked(_ctx: &mut EventCtx, data: &mut ApplicationState, _env: &Env) {
