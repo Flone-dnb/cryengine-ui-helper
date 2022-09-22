@@ -13,3 +13,5 @@ platform-dirs = "0.3.0"
 rdev = "0.5.1"
 configparser = "3.0.2"
 backtrace = "0.3.66"
+swf = "0.2.0"
+native-dialog = {version = "0.6.3", features = ["windows_dpi_awareness", "windows_visual_styles"]}
