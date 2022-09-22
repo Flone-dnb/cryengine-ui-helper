@@ -26,17 +26,17 @@ pub enum Layout {
 pub struct ApplicationState {
     current_layout: Layout,
 
-    // layouts
+    // layouts.
     main_layout: MainLayout,
 
-    // misc
+    // Misc.
     theme: ApplicationTheme,
 }
 
 fn main() {
     let window_size = Size {
         width: 700.0,
-        height: 500.0,
+        height: 600.0,
     };
 
     let (w, h) = display_size().unwrap();
