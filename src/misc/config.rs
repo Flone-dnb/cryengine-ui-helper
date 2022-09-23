@@ -1,6 +1,6 @@
 // Std.
 use std::fs::create_dir_all;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 // External.
 use configparser::ini::Ini;
@@ -46,7 +46,10 @@ impl ApplicationConfig {
         if path_to_gfxexport_bin.is_none() {
             some_values_were_empty = true;
         } else {
-            app_config.path_to_gfxexport_bin = path_to_gfxexport_bin.unwrap();
+            let path = path_to_gfxexport_bin.unwrap();
+            if Path::new(&path).exists() {
+                app_config.path_to_gfxexport_bin = path;
+            }
         }
 
         let additional_gfxexport_args = config.get(
