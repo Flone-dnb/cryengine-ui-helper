@@ -6,8 +6,11 @@ use iced::{
 };
 use native_dialog::{FileDialog, MessageDialog, MessageType};
 
+// STD.
+use std::path::Path;
+
 // Custom.
-use crate::{misc::config::ApplicationConfig, ApplicationMessage};
+use crate::{managers::xml_manager::*, misc::config::ApplicationConfig, ApplicationMessage};
 
 // Layout customization.
 const TEXT_SIZE: u16 = 20;
@@ -31,6 +34,18 @@ pub enum HAlign {
     Left,
     Center,
     Right,
+}
+
+impl Default for VAlign {
+    fn default() -> Self {
+        Self::Center
+    }
+}
+
+impl Default for HAlign {
+    fn default() -> Self {
+        Self::Center
+    }
 }
 
 impl std::fmt::Display for VAlign {
@@ -107,6 +122,7 @@ pub struct MainLayout {
     events: Vec<String>,
     halign: Option<HAlign>,
     valign: Option<VAlign>,
+    gfx_layer: usize,
     fullscreen: bool,
 }
 
@@ -123,8 +139,9 @@ impl MainLayout {
             functions: Vec::new(),
             events: Vec::new(),
             current_list: EntityList::Functions,
-            halign: Some(HAlign::Center),
-            valign: Some(VAlign::Center),
+            halign: Some(HAlign::default()),
+            valign: Some(VAlign::default()),
+            gfx_layer: 0,
             fullscreen: false,
         }
     }
@@ -416,6 +433,78 @@ impl MainLayout {
         Scrollable::new(list).height(Length::Fill).into()
     }
 
+    /// Check whether the specified directory contains an XML file with
+    /// the specified name.
+    ///
+    /// ## Arguments
+    /// * `path_to_dir`: path to the directory to check for an XML file.
+    /// * `name`: name of the file (without extension) to check.
+    ///
+    /// ## Return
+    /// `Err()` if not found, otherwise `Ok(String)` with a full path to the found file.
+    fn check_if_xml_exists(&self, path_to_dir: &str, name: &str) -> Result<String, ()> {
+        let mut path = Path::new(path_to_dir).to_path_buf();
+
+        if !path.exists() || !path.is_dir() {
+            return Err(());
+        }
+
+        path.push(&format!("{}.xml", name));
+
+        if !path.exists() {
+            return Err(());
+        }
+
+        Ok(path.to_string_lossy().to_string())
+    }
+
+    fn get_data_from_existing_xml(&mut self, path_to_xml_file: &str) {
+        if !Path::new(path_to_xml_file).exists() {
+            return;
+        }
+
+        // Ask if the user wants to read this file.
+        let yes = MessageDialog::new()
+            .set_type(MessageType::Info)
+            .set_title("Info")
+            .set_text(&format!(
+                "The XML file \"{}\" already exists, do you want \
+                        to get data from this file here?",
+                &path_to_xml_file
+            ))
+            .show_confirm()
+            .unwrap();
+        if !yes {
+            return;
+        }
+
+        // Parse XML file.
+        let result = XmlManager::read_config(path_to_xml_file);
+        if let Err(app_error) = result {
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_title("Error")
+                .set_text(&format!(
+                    "Failed to parse XML file at \"{}\". Error: {}",
+                    path_to_xml_file, app_error
+                ))
+                .show_alert()
+                .unwrap();
+            return;
+        }
+        let config = result.unwrap();
+
+        // Update values from config.
+        self.ui_elements_name = config.ui_elements_name;
+        self.ui_element_name = config.ui_element_name;
+        self.fullscreen = config.fullscreen;
+        self.gfx_layer = config.gfx_layer;
+        self.halign = Some(config.halign);
+        self.valign = Some(config.valign);
+        self.functions = config.functions;
+        self.events = config.events;
+    }
+
     fn generate(&mut self, app_config: &mut ApplicationConfig) {
         // Save additional GFxExport arguments to config.
         app_config.additional_gfxexport_args = self.additional_gfxexport_args.clone();
@@ -535,6 +624,23 @@ impl MainLayout {
 
         // Save.
         self.path_to_xml_dir = path.to_string_lossy().to_string();
+
+        // See if an XML file exists.
+        if Path::new(&self.path_to_swf_file).exists() {
+            let swf_file_name = Path::new(&self.path_to_swf_file).file_stem();
+            if swf_file_name.is_none() {
+                return;
+            }
+            let swf_file_name = swf_file_name.unwrap().to_string_lossy().to_string();
+
+            let result = self.check_if_xml_exists(&self.path_to_xml_dir, &swf_file_name);
+            if result.is_err() {
+                return;
+            }
+            let xml_path = result.unwrap();
+
+            self.get_data_from_existing_xml(&xml_path);
+        }
     }
 
     fn select_gfx_output_path(&mut self) {
@@ -564,6 +670,10 @@ impl MainLayout {
         // Save.
         self.path_to_swf_file = path.to_string_lossy().to_string();
 
+        // Set UI elemnt names.
+        self.ui_elements_name = path.file_stem().unwrap().to_string_lossy().to_string();
+        self.ui_element_name = self.ui_elements_name.clone();
+
         // Save paths to output directies.
         if path.parent().is_some() && path.parent().unwrap().parent().is_some() {
             // Set path to .gfx and .xml files.
@@ -590,9 +700,22 @@ impl MainLayout {
             }
         }
 
-        // Set UI elemnt names.
-        self.ui_elements_name = path.file_stem().unwrap().to_string_lossy().to_string();
-        self.ui_element_name = self.ui_elements_name.clone();
+        // See if an XML file exists.
+        if Path::new(&self.path_to_swf_file).exists() {
+            let swf_file_name = Path::new(&self.path_to_swf_file).file_stem();
+            if swf_file_name.is_none() {
+                return;
+            }
+            let swf_file_name = swf_file_name.unwrap().to_string_lossy().to_string();
+
+            let result = self.check_if_xml_exists(&self.path_to_xml_dir, &swf_file_name);
+            if result.is_err() {
+                return;
+            }
+            let xml_path = result.unwrap();
+
+            self.get_data_from_existing_xml(&xml_path);
+        }
     }
 
     fn select_gfx_bin_path(&mut self, app_config: &mut ApplicationConfig) {
