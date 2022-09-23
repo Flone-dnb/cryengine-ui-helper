@@ -160,6 +160,24 @@ impl MainLayout {
     }
 
     pub fn view(&self) -> Element<MainLayoutMessage> {
+        // Prepare buttons for categories.
+        let mut functions_button = Button::new(Text::new("Functions").size(TEXT_SIZE))
+            .on_press(MainLayoutMessage::ShowFunctions)
+            .style(iced::theme::Button::Secondary)
+            .width(Length::Fill);
+        let mut events_button = Button::new(Text::new("Events").size(TEXT_SIZE))
+            .on_press(MainLayoutMessage::ShowEvents)
+            .style(iced::theme::Button::Secondary)
+            .width(Length::Fill);
+
+        // Highlight active.
+        match self.current_list {
+            EntityList::Functions => {
+                functions_button = functions_button.style(iced::theme::Button::Primary)
+            }
+            EntityList::Events => events_button = events_button.style(iced::theme::Button::Primary),
+        }
+
         Column::new()
             .push(
                 Row::new()
@@ -317,6 +335,13 @@ impl MainLayout {
                     )),
             )
             .spacing(ELEMENT_SPACING)
+            .push(
+                Row::new()
+                    .push(functions_button)
+                    .spacing(ELEMENT_SPACING)
+                    .push(events_button),
+            )
+            .spacing(ELEMENT_SPACING)
             .push(self.get_entity_list())
             .spacing(ELEMENT_SPACING)
             .push(
@@ -388,33 +413,6 @@ impl MainLayout {
 
     fn get_entity_list(&self) -> Element<MainLayoutMessage> {
         let mut list = Column::new();
-
-        // Prepare buttons for categories.
-        let mut functions_button = Button::new(Text::new("Functions").size(TEXT_SIZE))
-            .on_press(MainLayoutMessage::ShowFunctions)
-            .style(iced::theme::Button::Secondary)
-            .width(Length::Fill);
-        let mut events_button = Button::new(Text::new("Events").size(TEXT_SIZE))
-            .on_press(MainLayoutMessage::ShowEvents)
-            .style(iced::theme::Button::Secondary)
-            .width(Length::Fill);
-
-        // Highlight active.
-        match self.current_list {
-            EntityList::Functions => {
-                functions_button = functions_button.style(iced::theme::Button::Primary)
-            }
-            EntityList::Events => events_button = events_button.style(iced::theme::Button::Primary),
-        }
-
-        // Add buttons to switch lists.
-        list = list.push(
-            Row::new()
-                .push(functions_button)
-                .spacing(ELEMENT_SPACING)
-                .push(events_button),
-        );
-        list = list.spacing(ELEMENT_SPACING);
 
         // Get reference to vector to use.
         let mut _vec_to_use = &self.functions;
@@ -518,7 +516,7 @@ impl MainLayout {
         }
 
         // Add "Add" button to list.
-        list = list.push(
+        list = list.spacing(ELEMENT_SPACING).push(
             Button::new(
                 Text::new("Add")
                     .size(TEXT_SIZE)
