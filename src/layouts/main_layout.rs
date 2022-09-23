@@ -1,363 +1,489 @@
-use std::rc::Rc;
-
-use druid::{Lens, LensExt, WidgetExt};
 // External.
-use druid::widget::{prelude::*, Button, Checkbox, RadioGroup, Scroll, TextBox, ViewSwitcher};
-use druid::widget::{Flex, Label, MainAxisAlignment, Padding};
-use native_dialog::FileDialog;
+use iced::{
+    alignment::{Horizontal, Vertical},
+    widget::{Button, Checkbox, Column, PickList, Row, Scrollable, Text, TextInput},
+    Command, Element, Length,
+};
+use native_dialog::{FileDialog, MessageDialog, MessageType};
 
 // Custom.
-use crate::ApplicationState;
+use crate::{misc::config::ApplicationConfig, ApplicationMessage};
 
 // Layout customization.
-const TEXT_SIZE: f64 = 15.0;
-const SMALL_TEXT_SIZE: f64 = 13.0;
-const LEFT_SIDE_SIZE: f64 = 0.35;
-const RIGHT_SIDE_SIZE: f64 = 0.65;
-const UI_ELEMENT_LEFT_SIDE_SIZE: f64 = 0.2;
-const UI_ELEMENT_RIGHT_SIDE_SIZE: f64 = 0.8;
-const ROW_BOX_HEIGHT: f64 = 0.04;
-const TEXT_BOX_HEIGHT: f64 = 0.02;
-const CONSTRAINS_BOX_HEIGHT: f64 = 0.175;
-const LIST_HEIGHT: f64 = 0.15;
+const TEXT_SIZE: u16 = 20;
+const SMALL_TEXT_SIZE: u16 = 18;
+const ELEMENT_SPACING: u16 = 10;
+const TEXT_INPUT_PADDING: u16 = 4;
+const PATH_SECTION_LEFT_SIZE_PORTION: u16 = 3;
+const PATH_SECTION_RIGHT_SIZE_PORTION: u16 = 7;
+const ELEMENT_NAME_SECTION_LEFT_SIZE_PORTION: u16 = 1;
+const ELEMENT_NAME_SECTION_RIGHT_SIZE_PORTION: u16 = 4;
 
-#[derive(Data, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub enum HAlign {
-    Left,
-    Center,
-    Right,
-}
-
-#[derive(Data, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VAlign {
     Top,
     Center,
     Bottom,
 }
 
-#[derive(Data, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub enum ItemList {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HAlign {
+    Left,
+    Center,
+    Right,
+}
+
+impl std::fmt::Display for VAlign {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                VAlign::Top => "Top",
+                VAlign::Center => "Center",
+                VAlign::Bottom => "Bottom",
+            }
+        )
+    }
+}
+
+impl std::fmt::Display for HAlign {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                HAlign::Left => "Left",
+                HAlign::Center => "Center",
+                HAlign::Right => "Right",
+            }
+        )
+    }
+}
+
+impl HAlign {
+    const ALL: [HAlign; 3] = [HAlign::Left, HAlign::Center, HAlign::Right];
+}
+
+impl VAlign {
+    const ALL: [VAlign; 3] = [VAlign::Top, VAlign::Center, VAlign::Bottom];
+}
+
+enum EntityList {
     Functions,
     Events,
 }
 
-#[derive(Clone, Data, Lens)]
+#[derive(Debug, Clone)]
+pub enum MainLayoutMessage {
+    SelectPathToGfxExportBin,
+    SelectPathToSwfFile,
+    SelectPathToGfxOutput,
+    SelectPathToXmlOutput,
+    ShowFunctions,
+    ShowEvents,
+    EntityListAddClicked,
+    UiElementsTextChanged(String),
+    UiElementTextChanged(String),
+    EntityListItemChanged(String, String),
+    EntityListRemoveItem(String),
+    HorizontalAlignChanged(HAlign),
+    VerticalAlignChanged(VAlign),
+    FullscreenChanged(bool),
+}
+
 pub struct MainLayout {
-    pub refresh_ui: bool, // because interior mutability on `Rc<Vec>` doesn't work in druid's data
-    pub path_to_gfxexport_bin: String,
-    pub path_to_swf_file: String,
-    pub path_to_gfx_dir: String,
-    pub path_to_xml_dir: String,
-    pub ui_elements_name: String,
-    pub ui_element_name: String,
-    pub is_fullscreen: bool,
-    pub halign: HAlign,
-    pub valign: VAlign,
-    pub displayed_list: ItemList,
-    pub functions: Rc<Vec<String>>, // using `Rc` because `Vec` does not implement `Data`
-    pub events: Rc<Vec<String>>,    // using `Rc` because `Vec` does not implement `Data`
+    path_to_gfxexport_bin: String,
+    path_to_swf_file: String,
+    path_to_gfx_dir: String,
+    path_to_xml_dir: String,
+    ui_elements_name: String,
+    ui_element_name: String,
+    current_list: EntityList,
+    functions: Vec<String>,
+    events: Vec<String>,
+    halign: Option<HAlign>,
+    valign: Option<VAlign>,
+    fullscreen: bool,
 }
 
 impl MainLayout {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn build_ui() -> impl Widget<ApplicationState> {
-        Padding::new(
-            10.0,
-            Flex::column()
-                .main_axis_alignment(MainAxisAlignment::Start)
-                .must_fill_main_axis(true)
-                .with_flex_child(
-                    Flex::row()
-                        .with_flex_child(
-                            Button::from_label(
-                                Label::new("Path to GFxExport").with_text_size(TEXT_SIZE),
-                            )
-                            .expand_width()
-                            .on_click(MainLayout::on_select_gfxexport_bin_clicked),
-                            LEFT_SIDE_SIZE,
-                        )
-                        .with_default_spacer()
-                        .with_flex_child(
-                            Label::new(|data: &ApplicationState, _env: &_| {
-                                data.main_layout.path_to_gfxexport_bin.clone()
-                            })
-                            .with_text_size(SMALL_TEXT_SIZE),
-                            RIGHT_SIDE_SIZE,
-                        ),
-                    ROW_BOX_HEIGHT,
-                )
-                .with_default_spacer()
-                .with_flex_child(
-                    Flex::row()
-                        .with_flex_child(
-                            Button::from_label(
-                                Label::new("Path to *.swf file").with_text_size(TEXT_SIZE),
-                            )
-                            .expand_width()
-                            .on_click(MainLayout::on_select_swf_clicked),
-                            LEFT_SIDE_SIZE,
-                        )
-                        .with_default_spacer()
-                        .with_flex_child(
-                            Label::new(|data: &ApplicationState, _env: &_| {
-                                data.main_layout.path_to_swf_file.clone()
-                            })
-                            .with_text_size(SMALL_TEXT_SIZE),
-                            RIGHT_SIDE_SIZE,
-                        ),
-                    ROW_BOX_HEIGHT,
-                )
-                .with_default_spacer()
-                .with_flex_child(
-                    Flex::row()
-                        .with_flex_child(
-                            Button::from_label(
-                                Label::new("Output directory for .gfx files")
-                                    .with_text_size(TEXT_SIZE),
-                            )
-                            .expand_width()
-                            .on_click(MainLayout::on_select_gfx_clicked),
-                            LEFT_SIDE_SIZE,
-                        )
-                        .with_default_spacer()
-                        .with_flex_child(
-                            Label::new(|data: &ApplicationState, _env: &_| {
-                                data.main_layout.path_to_gfx_dir.clone()
-                            })
-                            .with_text_size(SMALL_TEXT_SIZE),
-                            RIGHT_SIDE_SIZE,
-                        ),
-                    ROW_BOX_HEIGHT,
-                )
-                .with_default_spacer()
-                .with_flex_child(
-                    Flex::row()
-                        .with_flex_child(
-                            Button::from_label(
-                                Label::new("Output directory for .xml files")
-                                    .with_text_size(TEXT_SIZE),
-                            )
-                            .expand_width()
-                            .on_click(MainLayout::on_select_xml_clicked),
-                            LEFT_SIDE_SIZE,
-                        )
-                        .with_default_spacer()
-                        .with_flex_child(
-                            Label::new(|data: &ApplicationState, _env: &_| {
-                                data.main_layout.path_to_xml_dir.clone()
-                            })
-                            .with_text_size(SMALL_TEXT_SIZE),
-                            RIGHT_SIDE_SIZE,
-                        ),
-                    ROW_BOX_HEIGHT,
-                )
-                .with_default_spacer()
-                .with_flex_child(
-                    Flex::row()
-                        .with_flex_child(
-                            Label::new("Elements name")
-                                .with_text_size(TEXT_SIZE)
-                                .expand_width(),
-                            UI_ELEMENT_LEFT_SIDE_SIZE,
-                        )
-                        .with_default_spacer()
-                        .with_flex_child(
-                            TextBox::new()
-                                .with_text_size(TEXT_SIZE)
-                                .lens(
-                                    ApplicationState::main_layout
-                                        .then(MainLayout::ui_elements_name),
-                                )
-                                .expand(),
-                            UI_ELEMENT_RIGHT_SIDE_SIZE,
-                        ),
-                    TEXT_BOX_HEIGHT,
-                )
-                .with_default_spacer()
-                .with_flex_child(
-                    Flex::row()
-                        .with_flex_child(
-                            Label::new("Element name")
-                                .with_text_size(TEXT_SIZE)
-                                .expand_width(),
-                            UI_ELEMENT_LEFT_SIDE_SIZE,
-                        )
-                        .with_default_spacer()
-                        .with_flex_child(
-                            TextBox::new()
-                                .with_text_size(TEXT_SIZE)
-                                .lens(
-                                    ApplicationState::main_layout.then(MainLayout::ui_element_name),
-                                )
-                                .expand(),
-                            UI_ELEMENT_RIGHT_SIDE_SIZE,
-                        ),
-                    TEXT_BOX_HEIGHT,
-                )
-                .with_flex_child(
-                    Checkbox::from_label(Label::new("Fullscreen").with_text_size(TEXT_SIZE))
-                        .align_left()
-                        .lens(ApplicationState::main_layout.then(MainLayout::is_fullscreen)),
-                    ROW_BOX_HEIGHT,
-                )
-                .with_flex_child(
-                    Flex::row()
-                        .must_fill_main_axis(true)
-                        .with_flex_child(
-                            Flex::column()
-                                .with_flex_child(
-                                    Label::new("Horizontal alignment:").with_text_size(TEXT_SIZE),
-                                    1.0,
-                                )
-                                .with_default_spacer()
-                                .with_flex_child(
-                                    RadioGroup::new(vec![
-                                        ("left", HAlign::Left),
-                                        ("center", HAlign::Center),
-                                        ("right", HAlign::Right),
-                                    ])
-                                    .lens(ApplicationState::main_layout.then(MainLayout::halign)),
-                                    1.0,
-                                )
-                                .expand_height(),
-                            0.5,
-                        )
-                        .with_default_spacer()
-                        .with_flex_child(
-                            Flex::column()
-                                .with_flex_child(
-                                    Label::new("Vertical alignment:").with_text_size(TEXT_SIZE),
-                                    1.0,
-                                )
-                                .with_default_spacer()
-                                .with_flex_child(
-                                    RadioGroup::new(vec![
-                                        ("top", VAlign::Top),
-                                        ("center", VAlign::Center),
-                                        ("bottom", VAlign::Bottom),
-                                    ])
-                                    .lens(ApplicationState::main_layout.then(MainLayout::valign)),
-                                    1.0,
-                                )
-                                .expand_height(),
-                            0.5,
-                        ),
-                    CONSTRAINS_BOX_HEIGHT,
-                )
-                .with_flex_child(
-                    Flex::row()
-                        .must_fill_main_axis(true)
-                        .with_flex_child(
-                            Button::from_label(Label::new("Functions").with_text_size(TEXT_SIZE))
-                                .on_click(Self::on_show_functions_clicked)
-                                .expand_width(),
-                            1.0,
-                        )
-                        .with_flex_child(
-                            Button::from_label(Label::new("Events").with_text_size(TEXT_SIZE))
-                                .on_click(Self::on_show_events_clicked)
-                                .expand_width(),
-                            1.0,
-                        ),
-                    ROW_BOX_HEIGHT,
-                )
-                .with_default_spacer()
-                .with_flex_child(Self::build_list_ui(), LIST_HEIGHT),
-        )
-    }
-
-    pub fn build_list_ui() -> impl Widget<ApplicationState> {
-        ViewSwitcher::new(
-            |data: &ApplicationState, _env| data.main_layout.refresh_ui,
-            |selector, data, _env| match selector {
-                _ => Box::new(Self::build_list_ui_internal(data)),
-            },
-        )
-    }
-
-    pub fn build_list_ui_internal(data: &ApplicationState) -> impl Widget<ApplicationState> {
-        let mut list = Flex::column();
-
-        // Add section name.
-        match data.main_layout.displayed_list {
-            ItemList::Functions => {
-                list.add_flex_child(
-                    Label::new("Functions:").with_text_size(TEXT_SIZE),
-                    ROW_BOX_HEIGHT,
-                );
-            }
-            ItemList::Events => {
-                list.add_flex_child(
-                    Label::new("Events:").with_text_size(TEXT_SIZE),
-                    ROW_BOX_HEIGHT,
-                );
-            }
+    pub fn new(app_config: &ApplicationConfig) -> Self {
+        Self {
+            path_to_gfxexport_bin: app_config.path_to_gfxexport_bin.clone(),
+            path_to_swf_file: String::new(),
+            path_to_gfx_dir: String::new(),
+            path_to_xml_dir: String::new(),
+            ui_elements_name: String::new(),
+            ui_element_name: String::new(),
+            functions: Vec::new(),
+            events: Vec::new(),
+            current_list: EntityList::Functions,
+            halign: Some(HAlign::Center),
+            valign: Some(VAlign::Center),
+            fullscreen: false,
         }
+    }
 
-        list.add_default_spacer();
-
-        // Pick list to use.
-        let mut _vec_to_use: Rc<Vec<String>> = data.main_layout.functions.clone(); // initialize
-        match data.main_layout.displayed_list {
-            ItemList::Functions => {
-                _vec_to_use = data.main_layout.functions.clone();
-            }
-            ItemList::Events => {
-                _vec_to_use = data.main_layout.events.clone();
-            }
-        }
-
-        // Add list.
-        for item in _vec_to_use.iter() {
-            list.add_flex_child(
-                Button::from_label(Label::new(item.clone()).with_text_size(SMALL_TEXT_SIZE))
-                    .expand_width(),
-                ROW_BOX_HEIGHT,
+    pub fn view(&self) -> Element<MainLayoutMessage> {
+        Column::new()
+            .push(
+                Row::new()
+                    .push(
+                        Button::new(Text::new("Path to GFxExport").size(TEXT_SIZE))
+                            .on_press(MainLayoutMessage::SelectPathToGfxExportBin)
+                            .width(Length::FillPortion(PATH_SECTION_LEFT_SIZE_PORTION)),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        Text::new(&self.path_to_gfxexport_bin)
+                            .size(SMALL_TEXT_SIZE)
+                            .width(Length::FillPortion(PATH_SECTION_RIGHT_SIZE_PORTION))
+                            .vertical_alignment(Vertical::Center),
+                    ),
             )
+            .spacing(ELEMENT_SPACING)
+            .push(
+                Row::new()
+                    .push(
+                        Button::new(Text::new("Path to *.swf file").size(TEXT_SIZE))
+                            .on_press(MainLayoutMessage::SelectPathToSwfFile)
+                            .width(Length::FillPortion(PATH_SECTION_LEFT_SIZE_PORTION)),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        Text::new(&self.path_to_swf_file)
+                            .size(SMALL_TEXT_SIZE)
+                            .width(Length::FillPortion(PATH_SECTION_RIGHT_SIZE_PORTION))
+                            .vertical_alignment(Vertical::Center),
+                    ),
+            )
+            .spacing(ELEMENT_SPACING)
+            .push(
+                Row::new()
+                    .push(
+                        Button::new(Text::new("Output directory for .gfx files").size(TEXT_SIZE))
+                            .on_press(MainLayoutMessage::SelectPathToGfxOutput)
+                            .width(Length::FillPortion(PATH_SECTION_LEFT_SIZE_PORTION)),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        Text::new(&self.path_to_gfx_dir)
+                            .size(SMALL_TEXT_SIZE)
+                            .width(Length::FillPortion(PATH_SECTION_RIGHT_SIZE_PORTION))
+                            .vertical_alignment(Vertical::Center),
+                    ),
+            )
+            .spacing(ELEMENT_SPACING)
+            .push(
+                Row::new()
+                    .push(
+                        Button::new(Text::new("Output directory for .xml files").size(TEXT_SIZE))
+                            .on_press(MainLayoutMessage::SelectPathToXmlOutput)
+                            .width(Length::FillPortion(PATH_SECTION_LEFT_SIZE_PORTION)),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        Text::new(&self.path_to_xml_dir)
+                            .size(SMALL_TEXT_SIZE)
+                            .width(Length::FillPortion(PATH_SECTION_RIGHT_SIZE_PORTION))
+                            .vertical_alignment(Vertical::Center),
+                    ),
+            )
+            .spacing(ELEMENT_SPACING)
+            .push(
+                Row::new()
+                    .push(
+                        Text::new("Elements name")
+                            .size(TEXT_SIZE)
+                            .width(Length::FillPortion(ELEMENT_NAME_SECTION_LEFT_SIZE_PORTION)),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        TextInput::new(
+                            "",
+                            &self.ui_elements_name,
+                            MainLayoutMessage::UiElementsTextChanged,
+                        )
+                        .padding(TEXT_INPUT_PADDING)
+                        .size(TEXT_SIZE)
+                        .width(Length::FillPortion(ELEMENT_NAME_SECTION_RIGHT_SIZE_PORTION)),
+                    ),
+            )
+            .spacing(ELEMENT_SPACING)
+            .push(
+                Row::new()
+                    .push(
+                        Text::new("Element name")
+                            .size(TEXT_SIZE)
+                            .width(Length::FillPortion(ELEMENT_NAME_SECTION_LEFT_SIZE_PORTION)),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        TextInput::new(
+                            "",
+                            &self.ui_element_name,
+                            MainLayoutMessage::UiElementTextChanged,
+                        )
+                        .padding(TEXT_INPUT_PADDING)
+                        .size(TEXT_SIZE)
+                        .width(Length::FillPortion(ELEMENT_NAME_SECTION_RIGHT_SIZE_PORTION)),
+                    ),
+            )
+            .spacing(ELEMENT_SPACING)
+            .push(
+                Row::new()
+                    .push(
+                        Text::new("Horizontal alignment:")
+                            .size(TEXT_SIZE)
+                            .vertical_alignment(Vertical::Center),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(PickList::new(
+                        &HAlign::ALL[..],
+                        self.halign,
+                        MainLayoutMessage::HorizontalAlignChanged,
+                    ))
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        Text::new("Vertical alignment:")
+                            .size(TEXT_SIZE)
+                            .vertical_alignment(Vertical::Center),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(PickList::new(
+                        &VAlign::ALL[..],
+                        self.valign,
+                        MainLayoutMessage::VerticalAlignChanged,
+                    ))
+                    .spacing(ELEMENT_SPACING)
+                    .push(Checkbox::new(
+                        self.fullscreen,
+                        "Fullscreen",
+                        MainLayoutMessage::FullscreenChanged,
+                    )),
+            )
+            .spacing(ELEMENT_SPACING)
+            .push(self.get_entity_list())
+            .padding(10)
+            .into()
+    }
+
+    pub fn update(
+        &mut self,
+        message: MainLayoutMessage,
+        app_config: &mut ApplicationConfig,
+    ) -> Command<ApplicationMessage> {
+        match message {
+            MainLayoutMessage::SelectPathToGfxExportBin => self.select_gfx_bin_path(app_config),
+            MainLayoutMessage::SelectPathToSwfFile => self.select_swf_file_path(),
+            MainLayoutMessage::SelectPathToGfxOutput => self.select_gfx_output_path(),
+            MainLayoutMessage::SelectPathToXmlOutput => self.select_xml_output_path(),
+            MainLayoutMessage::UiElementsTextChanged(elements_name) => {
+                self.update_ui_elements_name(elements_name)
+            }
+            MainLayoutMessage::UiElementTextChanged(element_name) => {
+                self.update_ui_element_name(element_name)
+            }
+            MainLayoutMessage::VerticalAlignChanged(valign) => self.update_vertical_align(valign),
+            MainLayoutMessage::HorizontalAlignChanged(halign) => {
+                self.update_horizontal_align(halign)
+            }
+            MainLayoutMessage::FullscreenChanged(fullscreen) => self.update_fullscreen(fullscreen),
+            MainLayoutMessage::ShowFunctions => self.show_functions(),
+            MainLayoutMessage::ShowEvents => self.show_events(),
+            MainLayoutMessage::EntityListAddClicked => self.add_list_item(),
+            MainLayoutMessage::EntityListItemChanged(oldname, newname) => {
+                self.update_list_item(oldname, newname)
+            }
+            MainLayoutMessage::EntityListRemoveItem(name) => self.remove_list_item(name),
         }
 
-        // Add button to add new items.
-        list.add_flex_child(
-            Button::from_label(Label::new("Add").with_text_size(TEXT_SIZE)).expand_width(),
-            ROW_BOX_HEIGHT,
+        Command::none()
+    }
+
+    fn get_entity_list(&self) -> Element<MainLayoutMessage> {
+        let mut list = Column::new();
+
+        // Prepare buttons for categories.
+        let mut functions_button = Button::new(Text::new("Functions").size(TEXT_SIZE))
+            .on_press(MainLayoutMessage::ShowFunctions)
+            .style(iced::theme::Button::Secondary)
+            .width(Length::Fill);
+        let mut events_button = Button::new(Text::new("Events").size(TEXT_SIZE))
+            .on_press(MainLayoutMessage::ShowEvents)
+            .style(iced::theme::Button::Secondary)
+            .width(Length::Fill);
+
+        // Highlight active.
+        match self.current_list {
+            EntityList::Functions => {
+                functions_button = functions_button.style(iced::theme::Button::Primary)
+            }
+            EntityList::Events => events_button = events_button.style(iced::theme::Button::Primary),
+        }
+
+        // Add buttons to switch lists.
+        list = list.push(
+            Row::new()
+                .push(functions_button)
+                .spacing(ELEMENT_SPACING)
+                .push(events_button),
+        );
+        list = list.spacing(ELEMENT_SPACING);
+
+        // Get reference to current array.
+        let mut _vec_to_use = &self.functions;
+        match self.current_list {
+            EntityList::Functions => {
+                _vec_to_use = &self.functions;
+            }
+            EntityList::Events => {
+                _vec_to_use = &self.events;
+            }
+        }
+
+        // Fill list.
+        for item in _vec_to_use.iter() {
+            list = list.push(
+                Row::new()
+                    .push(
+                        TextInput::new("name", &item, |name: String| -> MainLayoutMessage {
+                            MainLayoutMessage::EntityListItemChanged(item.clone(), name)
+                        })
+                        .size(TEXT_SIZE)
+                        .padding(TEXT_INPUT_PADDING),
+                    )
+                    .push(
+                        Button::new(Text::new("Remove").size(TEXT_SIZE))
+                            .on_press(MainLayoutMessage::EntityListRemoveItem(item.clone())),
+                    ),
+            );
+        }
+
+        // Add "Add" button to list.
+        list = list.push(
+            Button::new(
+                Text::new("Add")
+                    .size(TEXT_SIZE)
+                    .horizontal_alignment(Horizontal::Center),
+            )
+            .on_press(MainLayoutMessage::EntityListAddClicked)
+            .width(Length::Fill),
         );
 
-        Scroll::new(list).vertical()
+        Scrollable::new(list).height(Length::Fill).into()
     }
 
-    fn on_show_functions_clicked(_ctx: &mut EventCtx, data: &mut ApplicationState, _env: &Env) {
-        data.main_layout.displayed_list = ItemList::Functions;
-        data.main_layout.refresh_ui = !data.main_layout.refresh_ui;
+    fn update_list_item(&mut self, oldname: String, newname: String) {
+        // Get reference to current array.
+        let mut _vec_to_use = &mut self.functions;
+        match self.current_list {
+            EntityList::Functions => {
+                _vec_to_use = &mut self.functions;
+            }
+            EntityList::Events => {
+                _vec_to_use = &mut self.events;
+            }
+        }
+
+        for item in _vec_to_use.iter_mut() {
+            if item == &oldname {
+                *item = newname;
+                break;
+            }
+        }
     }
 
-    fn on_show_events_clicked(_ctx: &mut EventCtx, data: &mut ApplicationState, _env: &Env) {
-        data.main_layout.displayed_list = ItemList::Events;
-        data.main_layout.refresh_ui = !data.main_layout.refresh_ui;
+    fn add_list_item(&mut self) {
+        // Get reference to current array.
+        let mut _vec_to_use = &mut self.functions;
+        match self.current_list {
+            EntityList::Functions => {
+                _vec_to_use = &mut self.functions;
+            }
+            EntityList::Events => {
+                _vec_to_use = &mut self.events;
+            }
+        }
+
+        _vec_to_use.push(String::from("name"));
     }
 
-    fn on_select_gfxexport_bin_clicked(
-        _ctx: &mut EventCtx,
-        data: &mut ApplicationState,
-        _env: &Env,
-    ) {
-        // Get path to GFxExport1.exe file.
-        let path = FileDialog::new()
-            .add_filter("GFxExport file", &["exe"])
-            .show_open_single_file()
-            .unwrap();
+    fn remove_list_item(&mut self, name: String) {
+        // Get reference to current array.
+        let mut _vec_to_use = &mut self.functions;
+        match self.current_list {
+            EntityList::Functions => {
+                _vec_to_use = &mut self.functions;
+            }
+            EntityList::Events => {
+                _vec_to_use = &mut self.events;
+            }
+        }
+
+        // Remove item.
+        for (i, item) in _vec_to_use.iter().enumerate() {
+            if item == &name {
+                _vec_to_use.remove(i);
+                break;
+            }
+        }
+    }
+
+    fn show_functions(&mut self) {
+        self.current_list = EntityList::Functions;
+    }
+
+    fn show_events(&mut self) {
+        self.current_list = EntityList::Events;
+    }
+
+    fn update_fullscreen(&mut self, fullscreen: bool) {
+        self.fullscreen = fullscreen;
+    }
+
+    fn update_horizontal_align(&mut self, halign: HAlign) {
+        self.halign = Some(halign);
+    }
+
+    fn update_vertical_align(&mut self, valign: VAlign) {
+        self.valign = Some(valign);
+    }
+
+    fn update_ui_elements_name(&mut self, elements_name: String) {
+        self.ui_elements_name = elements_name;
+    }
+
+    fn update_ui_element_name(&mut self, element_name: String) {
+        self.ui_element_name = element_name;
+    }
+
+    fn select_xml_output_path(&mut self) {
+        // Get path to output .xml files.
+        let path = FileDialog::new().show_open_single_dir().unwrap();
         if path.is_none() {
             return;
         }
         let path = path.unwrap();
 
         // Save.
-        data.main_layout.path_to_gfxexport_bin = path.to_string_lossy().to_string();
+        self.path_to_xml_dir = path.to_string_lossy().to_string();
     }
 
-    fn on_select_swf_clicked(_ctx: &mut EventCtx, data: &mut ApplicationState, _env: &Env) {
+    fn select_gfx_output_path(&mut self) {
+        // Get path to output .gfx files.
+        let path = FileDialog::new().show_open_single_dir().unwrap();
+        if path.is_none() {
+            return;
+        }
+        let path = path.unwrap();
+
+        // Save.
+        self.path_to_gfx_dir = path.to_string_lossy().to_string();
+    }
+
+    fn select_swf_file_path(&mut self) {
         // Get path to .swf file.
         let path = FileDialog::new()
             .add_filter("SWF Movie", &["swf"])
@@ -369,7 +495,7 @@ impl MainLayout {
         let path = path.unwrap();
 
         // Save.
-        data.main_layout.path_to_swf_file = path.to_string_lossy().to_string();
+        self.path_to_swf_file = path.to_string_lossy().to_string();
 
         // Save paths to output directies.
         if path.parent().is_some() && path.parent().unwrap().parent().is_some() {
@@ -378,56 +504,42 @@ impl MainLayout {
             let mut path_to_xml = path_to_gfx.to_path_buf();
             path_to_xml.push("UIElements");
 
-            data.main_layout.path_to_gfx_dir = path_to_gfx.to_string_lossy().to_string();
-            data.main_layout.path_to_xml_dir = path_to_xml.to_string_lossy().to_string();
+            self.path_to_gfx_dir = path_to_gfx.to_string_lossy().to_string();
+            self.path_to_xml_dir = path_to_xml.to_string_lossy().to_string();
         }
 
         // Set UI elemnt names.
-        data.main_layout.ui_elements_name = path.file_stem().unwrap().to_string_lossy().to_string();
-        data.main_layout.ui_element_name = data.main_layout.ui_elements_name.clone();
+        self.ui_elements_name = path.file_stem().unwrap().to_string_lossy().to_string();
+        self.ui_element_name = self.ui_elements_name.clone();
     }
 
-    fn on_select_xml_clicked(_ctx: &mut EventCtx, data: &mut ApplicationState, _env: &Env) {
-        // Get path to output .xml files.
-        let path = FileDialog::new().show_open_single_dir().unwrap();
+    fn select_gfx_bin_path(&mut self, app_config: &mut ApplicationConfig) {
+        // Get path to GFxExport1.exe file.
+        let path = FileDialog::new()
+            .add_filter("GFxExport file", &["exe"])
+            .show_open_single_file()
+            .unwrap();
         if path.is_none() {
             return;
         }
         let path = path.unwrap();
 
-        // Save.
-        data.main_layout.path_to_xml_dir = path.to_string_lossy().to_string();
-    }
+        // Save to UI.
+        self.path_to_gfxexport_bin = path.to_string_lossy().to_string();
 
-    fn on_select_gfx_clicked(_ctx: &mut EventCtx, data: &mut ApplicationState, _env: &Env) {
-        // Get path to output .gfx files.
-        let path = FileDialog::new().show_open_single_dir().unwrap();
-        if path.is_none() {
-            return;
-        }
-        let path = path.unwrap();
-
-        // Save.
-        data.main_layout.path_to_gfx_dir = path.to_string_lossy().to_string();
-    }
-}
-
-impl Default for MainLayout {
-    fn default() -> Self {
-        Self {
-            path_to_swf_file: String::new(),
-            path_to_gfxexport_bin: String::new(),
-            path_to_gfx_dir: String::new(),
-            path_to_xml_dir: String::new(),
-            ui_elements_name: String::new(),
-            ui_element_name: String::new(),
-            is_fullscreen: false,
-            halign: HAlign::Center,
-            valign: VAlign::Center,
-            functions: Rc::new(Vec::new()),
-            events: Rc::new(Vec::new()),
-            displayed_list: ItemList::Functions,
-            refresh_ui: false,
+        // Save to config.
+        app_config.path_to_gfxexport_bin = self.path_to_gfxexport_bin.clone();
+        if let Err(app_error) = app_config.save() {
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_title("Error")
+                .set_text(&format!(
+                    "Failed to save configuration file to {}.\n\nError: {}",
+                    ApplicationConfig::get_config_file_path().to_string_lossy(),
+                    app_error
+                ))
+                .show_alert()
+                .unwrap();
         }
     }
 }

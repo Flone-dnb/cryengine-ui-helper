@@ -5,17 +5,12 @@ version = "1.0.0"
 edition = "2021"
 license = "MIT"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 platform-dirs = "0.3.0"
 rdev = "0.5.1"
 configparser = "3.0.2"
 backtrace = "0.3.66"
-swf = "0.2.0"
 native-dialog = {version = "0.6.3", features = ["windows_dpi_awareness", "windows_visual_styles"]}
 quick-xml = "0.25.0"
-
-[dependencies.druid]
-git = "https://github.com/linebender/druid"
-rev = "fc05e965c85fced8720c655685e02478e0530e94"
+wgpu = "0.13.1"
+iced = {git = "https://github.com/iced-rs/iced", rev = "7420ea7a6b80663cad178c1238c5b756232a087f"}
