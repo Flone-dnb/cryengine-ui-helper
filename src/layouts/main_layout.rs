@@ -83,6 +83,7 @@ pub enum MainLayoutMessage {
     ShowFunctions,
     ShowEvents,
     EntityListAddClicked,
+    GenerateClicked,
     AdditionalGfxExportArgsChanged(String),
     UiElementsTextChanged(String),
     UiElementTextChanged(String),
@@ -116,7 +117,7 @@ impl MainLayout {
             path_to_swf_file: String::new(),
             path_to_gfx_dir: String::new(),
             path_to_xml_dir: String::new(),
-            additional_gfxexport_args: String::new(),
+            additional_gfxexport_args: app_config.additional_gfxexport_args.clone(),
             ui_elements_name: String::new(),
             ui_element_name: String::new(),
             functions: Vec::new(),
@@ -287,6 +288,12 @@ impl MainLayout {
             )
             .spacing(ELEMENT_SPACING)
             .push(self.get_entity_list())
+            .spacing(ELEMENT_SPACING)
+            .push(
+                Button::new(Text::new("Generate .gfx and .xml files").size(TEXT_SIZE))
+                    .on_press(MainLayoutMessage::GenerateClicked)
+                    .width(Length::Fill),
+            )
             .padding(10)
             .into()
     }
@@ -322,6 +329,7 @@ impl MainLayout {
             MainLayoutMessage::AdditionalGfxExportArgsChanged(args) => {
                 self.update_additional_gfxexport_args(args)
             }
+            MainLayoutMessage::GenerateClicked => self.generate(app_config),
         }
 
         Command::none()
@@ -399,6 +407,32 @@ impl MainLayout {
         );
 
         Scrollable::new(list).height(Length::Fill).into()
+    }
+
+    fn generate(&mut self, app_config: &mut ApplicationConfig) {
+        // Save additional GFxExport arguments to config.
+        app_config.additional_gfxexport_args = self.additional_gfxexport_args.clone();
+        if let Err(app_error) = app_config.save() {
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_title("Error")
+                .set_text(&format!(
+                    "Failed to save configuration file to {}.\n\nError: {}",
+                    ApplicationConfig::get_config_file_path().to_string_lossy(),
+                    app_error
+                ))
+                .show_alert()
+                .unwrap();
+        }
+
+        // TODO
+
+        MessageDialog::new()
+            .set_type(MessageType::Info)
+            .set_title("Info")
+            .set_text("Successfully generated .gfx and .xml files.")
+            .show_alert()
+            .unwrap();
     }
 
     fn update_additional_gfxexport_args(&mut self, args: String) {
