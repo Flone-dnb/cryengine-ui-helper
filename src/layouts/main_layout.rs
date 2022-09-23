@@ -83,9 +83,10 @@ pub enum MainLayoutMessage {
     ShowFunctions,
     ShowEvents,
     EntityListAddClicked,
+    AdditionalGfxExportArgsChanged(String),
     UiElementsTextChanged(String),
     UiElementTextChanged(String),
-    EntityListItemChanged(String, String),
+    EntityListItemChanged(usize, String),
     EntityListRemoveItem(String),
     HorizontalAlignChanged(HAlign),
     VerticalAlignChanged(VAlign),
@@ -97,6 +98,7 @@ pub struct MainLayout {
     path_to_swf_file: String,
     path_to_gfx_dir: String,
     path_to_xml_dir: String,
+    additional_gfxexport_args: String,
     ui_elements_name: String,
     ui_element_name: String,
     current_list: EntityList,
@@ -114,6 +116,7 @@ impl MainLayout {
             path_to_swf_file: String::new(),
             path_to_gfx_dir: String::new(),
             path_to_xml_dir: String::new(),
+            additional_gfxexport_args: String::new(),
             ui_elements_name: String::new(),
             ui_element_name: String::new(),
             functions: Vec::new(),
@@ -140,6 +143,25 @@ impl MainLayout {
                             .size(SMALL_TEXT_SIZE)
                             .width(Length::FillPortion(PATH_SECTION_RIGHT_SIZE_PORTION))
                             .vertical_alignment(Vertical::Center),
+                    ),
+            )
+            .push(
+                Row::new()
+                    .push(
+                        Text::new("Additional GFxExport arguments")
+                            .size(TEXT_SIZE)
+                            .width(Length::FillPortion(PATH_SECTION_LEFT_SIZE_PORTION)),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        TextInput::new(
+                            "",
+                            &self.additional_gfxexport_args,
+                            MainLayoutMessage::AdditionalGfxExportArgsChanged,
+                        )
+                        .padding(TEXT_INPUT_PADDING)
+                        .size(TEXT_SIZE)
+                        .width(Length::FillPortion(PATH_SECTION_RIGHT_SIZE_PORTION)),
                     ),
             )
             .spacing(ELEMENT_SPACING)
@@ -293,10 +315,13 @@ impl MainLayout {
             MainLayoutMessage::ShowFunctions => self.show_functions(),
             MainLayoutMessage::ShowEvents => self.show_events(),
             MainLayoutMessage::EntityListAddClicked => self.add_list_item(),
-            MainLayoutMessage::EntityListItemChanged(oldname, newname) => {
-                self.update_list_item(oldname, newname)
+            MainLayoutMessage::EntityListItemChanged(index, newname) => {
+                self.update_list_item(index, newname)
             }
             MainLayoutMessage::EntityListRemoveItem(name) => self.remove_list_item(name),
+            MainLayoutMessage::AdditionalGfxExportArgsChanged(args) => {
+                self.update_additional_gfxexport_args(args)
+            }
         }
 
         Command::none()
@@ -344,16 +369,17 @@ impl MainLayout {
         }
 
         // Fill list.
-        for item in _vec_to_use.iter() {
+        for (index, item) in _vec_to_use.iter().enumerate() {
             list = list.push(
                 Row::new()
                     .push(
-                        TextInput::new("name", &item, |name: String| -> MainLayoutMessage {
-                            MainLayoutMessage::EntityListItemChanged(item.clone(), name)
+                        TextInput::new("name", &item, move |name: String| -> MainLayoutMessage {
+                            MainLayoutMessage::EntityListItemChanged(index, name)
                         })
                         .size(TEXT_SIZE)
                         .padding(TEXT_INPUT_PADDING),
                     )
+                    .spacing(ELEMENT_SPACING)
                     .push(
                         Button::new(Text::new("Remove").size(TEXT_SIZE))
                             .on_press(MainLayoutMessage::EntityListRemoveItem(item.clone())),
@@ -375,7 +401,11 @@ impl MainLayout {
         Scrollable::new(list).height(Length::Fill).into()
     }
 
-    fn update_list_item(&mut self, oldname: String, newname: String) {
+    fn update_additional_gfxexport_args(&mut self, args: String) {
+        self.additional_gfxexport_args = args;
+    }
+
+    fn update_list_item(&mut self, index: usize, newname: String) {
         // Get reference to current array.
         let mut _vec_to_use = &mut self.functions;
         match self.current_list {
@@ -387,12 +417,7 @@ impl MainLayout {
             }
         }
 
-        for item in _vec_to_use.iter_mut() {
-            if item == &oldname {
-                *item = newname;
-                break;
-            }
-        }
+        _vec_to_use[index] = newname;
     }
 
     fn add_list_item(&mut self) {

@@ -85,7 +85,7 @@ impl Application for ApplicationState {
 
 fn main() -> iced::Result {
     let window_size = Size {
-        width: 800,
+        width: 900,
         height: 500,
     };
 
