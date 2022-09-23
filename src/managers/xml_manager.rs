@@ -3,7 +3,7 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::reader::Reader;
 
 // Custom.
-use crate::layouts::main_layout::{HAlign, UiEvent, VAlign};
+use crate::layouts::main_layout::{HAlign, UiRunnable, VAlign};
 use crate::misc::error::AppError;
 
 #[derive(Default)]
@@ -14,8 +14,8 @@ pub struct XmlConfig {
     pub fullscreen: bool,
     pub halign: HAlign,
     pub valign: VAlign,
-    pub functions: Vec<String>,
-    pub events: Vec<UiEvent>,
+    pub functions: Vec<UiRunnable>,
+    pub events: Vec<UiRunnable>,
 }
 
 pub struct XmlManager;
@@ -98,12 +98,15 @@ impl XmlManager {
                     b"function" => {
                         is_in_function_event = true;
                         current_item_name = Self::get_attribute_value(&event, "name")?;
-                        config.functions.push(current_item_name.clone());
+                        config.functions.push(UiRunnable {
+                            name: current_item_name.clone(),
+                            parameters: Vec::new(),
+                        });
                     }
                     b"event" => {
                         is_in_function_event = false;
                         current_item_name = Self::get_attribute_value(&event, "name")?;
-                        config.events.push(UiEvent {
+                        config.events.push(UiRunnable {
                             name: current_item_name.clone(),
                             parameters: Vec::new(),
                         });
@@ -112,14 +115,15 @@ impl XmlManager {
                         let name = Self::get_attribute_value(&event, "name")?;
                         let desc = Self::get_attribute_value(&event, "desc")?;
 
+                        let mut _vec_to_use = &mut config.events;
                         if is_in_function_event {
-                            // remove this branching, only determine what vector to use
-                        } else {
-                            for item in config.events.iter_mut() {
-                                if &item.name == &current_item_name {
-                                    item.parameters.push((name, desc));
-                                    break;
-                                }
+                            _vec_to_use = &mut config.functions;
+                        }
+
+                        for item in _vec_to_use.iter_mut() {
+                            if &item.name == &current_item_name {
+                                item.parameters.push((name, desc));
+                                break;
                             }
                         }
                     }

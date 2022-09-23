@@ -86,8 +86,9 @@ impl VAlign {
     const ALL: [VAlign; 3] = [VAlign::Top, VAlign::Center, VAlign::Bottom];
 }
 
+/// Function or Event
 #[derive(Default)]
-pub struct UiEvent {
+pub struct UiRunnable {
     pub name: String,
     pub parameters: Vec<(String, String)>, // array of pairs: name - description
 }
@@ -130,8 +131,8 @@ pub struct MainLayout {
     ui_elements_name: String,
     ui_element_name: String,
     current_list: EntityList,
-    functions: Vec<String>,
-    events: Vec<UiEvent>,
+    functions: Vec<UiRunnable>,
+    events: Vec<UiRunnable>,
     halign: Option<HAlign>,
     valign: Option<VAlign>,
     gfx_layer: usize,
@@ -415,41 +416,23 @@ impl MainLayout {
         );
         list = list.spacing(ELEMENT_SPACING);
 
-        // Fill list.
+        // Get reference to vector to use.
+        let mut _vec_to_use = &self.functions;
         match self.current_list {
             EntityList::Functions => {
-                for (index, item) in self.functions.iter().enumerate() {
-                    list = list.push(
-                        Row::new()
-                            .push(
-                                TextInput::new(
-                                    "Function name",
-                                    &item,
-                                    move |name: String| -> MainLayoutMessage {
-                                        MainLayoutMessage::EntityListItemChanged(index, name)
-                                    },
-                                )
-                                .size(TEXT_SIZE)
-                                .padding(TEXT_INPUT_PADDING)
-                                .width(Length::FillPortion(LIST_ITEM_PORTION)),
-                            )
-                            .spacing(ELEMENT_SPACING)
-                            .push(
-                                Button::new(Text::new("Remove item").size(TEXT_SIZE))
-                                    .on_press(MainLayoutMessage::EntityListRemoveItem(index))
-                                    .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
-                            ),
-                    );
-                }
+                _vec_to_use = &self.functions;
             }
             EntityList::Events => {
-                for (index, item) in self.events.iter().enumerate() {
-                    // Collect event parameters.
-                    let mut params = Column::new();
-                    for (param_index, (param_name, param_desc)) in
-                        item.parameters.iter().enumerate()
-                    {
-                        params = params.push(
+                _vec_to_use = &self.events;
+            }
+        }
+
+        // Fill list.
+        for (index, item) in _vec_to_use.iter().enumerate() {
+            // Collect parameters.
+            let mut params = Column::new();
+            for (param_index, (param_name, param_desc)) in item.parameters.iter().enumerate() {
+                params = params.push(
                             Row::new()
                                 .push(
                                     Button::new(Text::new("Remove parameter").size(TEXT_SIZE))
@@ -492,50 +475,46 @@ impl MainLayout {
                                     .width(Length::FillPortion(LIST_ITEM_PORTION)),
                                 ),
                         );
-                    }
+            }
 
-                    // Add "Add parameter" button.
-                    params = params.spacing(ELEMENT_SPACING).push(
-                        Button::new(
-                            Text::new("Add parameter")
-                                .size(TEXT_SIZE)
-                                .horizontal_alignment(Horizontal::Center),
-                        )
-                        .on_press(MainLayoutMessage::EntityListAddParameterClicked(index))
-                        .width(Length::Fill),
-                    );
+            // Add "Add parameter" button.
+            params = params.spacing(ELEMENT_SPACING).push(
+                Button::new(
+                    Text::new("Add parameter")
+                        .size(TEXT_SIZE)
+                        .horizontal_alignment(Horizontal::Center),
+                )
+                .on_press(MainLayoutMessage::EntityListAddParameterClicked(index))
+                .width(Length::Fill),
+            );
 
-                    // Add event to list.
-                    list = list.push(
-                        Row::new()
+            // Add item to list.
+            list = list.push(
+                Row::new()
+                    .push(
+                        Column::new()
                             .push(
-                                Column::new()
-                                    .push(
-                                        TextInput::new(
-                                            "",
-                                            &item.name,
-                                            move |name: String| -> MainLayoutMessage {
-                                                MainLayoutMessage::EntityListItemChanged(
-                                                    index, name,
-                                                )
-                                            },
-                                        )
-                                        .size(TEXT_SIZE)
-                                        .padding(TEXT_INPUT_PADDING),
-                                    )
-                                    .spacing(ELEMENT_SPACING)
-                                    .push(params)
-                                    .width(Length::FillPortion(LIST_ITEM_PORTION)),
+                                TextInput::new(
+                                    "",
+                                    &item.name,
+                                    move |name: String| -> MainLayoutMessage {
+                                        MainLayoutMessage::EntityListItemChanged(index, name)
+                                    },
+                                )
+                                .size(TEXT_SIZE)
+                                .padding(TEXT_INPUT_PADDING),
                             )
                             .spacing(ELEMENT_SPACING)
-                            .push(
-                                Button::new(Text::new("Remove item").size(TEXT_SIZE))
-                                    .on_press(MainLayoutMessage::EntityListRemoveItem(index))
-                                    .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
-                            ),
-                    );
-                }
-            }
+                            .push(params)
+                            .width(Length::FillPortion(LIST_ITEM_PORTION)),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        Button::new(Text::new("Remove item").size(TEXT_SIZE))
+                            .on_press(MainLayoutMessage::EntityListRemoveItem(index))
+                            .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
+                    ),
+            );
         }
 
         // Add "Add" button to list.
@@ -657,9 +636,11 @@ impl MainLayout {
     fn update_list_item(&mut self, index: usize, newname: String) {
         match self.current_list {
             EntityList::Functions => {
-                self.functions[index] = newname;
+                self.functions[index].name = newname;
             }
-            EntityList::Events => self.events[index].name = newname,
+            EntityList::Events => {
+                self.events[index].name = newname;
+            }
         }
     }
 
@@ -670,7 +651,9 @@ impl MainLayout {
         newname: String,
     ) {
         match self.current_list {
-            EntityList::Functions => {}
+            EntityList::Functions => {
+                self.functions[item_index].parameters[param_index].0 = newname;
+            }
             EntityList::Events => {
                 self.events[item_index].parameters[param_index].0 = newname;
             }
@@ -684,7 +667,9 @@ impl MainLayout {
         newname: String,
     ) {
         match self.current_list {
-            EntityList::Functions => {}
+            EntityList::Functions => {
+                self.functions[item_index].parameters[param_index].1 = newname;
+            }
             EntityList::Events => {
                 self.events[item_index].parameters[param_index].1 = newname;
             }
@@ -702,18 +687,28 @@ impl MainLayout {
 
     fn add_list_item_parameter(&mut self, item_index: usize) {
         match self.current_list {
-            EntityList::Functions => {}
-            EntityList::Events => self.events[item_index].parameters.push((
-                String::from("Parameter name"),
-                String::from("Parameter description"),
-            )),
+            EntityList::Functions => {
+                self.functions[item_index].parameters.push((
+                    String::from("Parameter name"),
+                    String::from("Parameter description"),
+                ));
+            }
+            EntityList::Events => {
+                self.events[item_index].parameters.push((
+                    String::from("Parameter name"),
+                    String::from("Parameter description"),
+                ));
+            }
         }
     }
 
     fn add_list_item(&mut self) {
         match self.current_list {
-            EntityList::Functions => self.functions.push(String::from("Function name")),
-            EntityList::Events => self.events.push(UiEvent {
+            EntityList::Functions => self.functions.push(UiRunnable {
+                name: String::from("Function name"),
+                parameters: Vec::new(),
+            }),
+            EntityList::Events => self.events.push(UiRunnable {
                 name: String::from("Event name"),
                 parameters: Vec::new(),
             }),
