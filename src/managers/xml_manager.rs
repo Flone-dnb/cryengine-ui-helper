@@ -3,7 +3,7 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::reader::Reader;
 
 // Custom.
-use crate::layouts::main_layout::{HAlign, VAlign};
+use crate::layouts::main_layout::{HAlign, UiEvent, VAlign};
 use crate::misc::error::AppError;
 
 #[derive(Default)]
@@ -15,7 +15,7 @@ pub struct XmlConfig {
     pub halign: HAlign,
     pub valign: VAlign,
     pub functions: Vec<String>,
-    pub events: Vec<String>,
+    pub events: Vec<UiEvent>,
 }
 
 pub struct XmlManager;
@@ -31,13 +31,15 @@ impl XmlManager {
         let mut buf = Vec::new();
 
         let mut config = XmlConfig::default();
+        let mut current_item_name = String::new();
+        let mut is_in_function_event = false;
         loop {
             match reader.read_event_into(&mut buf) {
                 Err(e) => {
                     return Err(AppError::new(&e.to_string()));
                 }
                 Ok(Event::Eof) => break,
-                Ok(Event::Start(event)) => match event.name().as_ref() {
+                Ok(Event::Start(event)) | Ok(Event::Empty(event)) => match event.name().as_ref() {
                     b"UIElements" => {
                         config.ui_elements_name = Self::get_attribute_value(&event, "name")?;
                     }
@@ -54,7 +56,7 @@ impl XmlManager {
                     }
                     b"Align" => {
                         // Get mode.
-                        let mode = Self::get_attribute_value(&event, "name")?;
+                        let mode = Self::get_attribute_value(&event, "mode")?;
                         if mode == "fullscreen" {
                             config.fullscreen = true;
                         } else {
@@ -94,14 +96,32 @@ impl XmlManager {
                         }
                     }
                     b"function" => {
-                        config
-                            .functions
-                            .push(Self::get_attribute_value(&event, "name")?);
+                        is_in_function_event = true;
+                        current_item_name = Self::get_attribute_value(&event, "name")?;
+                        config.functions.push(current_item_name.clone());
                     }
                     b"event" => {
-                        config
-                            .events
-                            .push(Self::get_attribute_value(&event, "name")?);
+                        is_in_function_event = false;
+                        current_item_name = Self::get_attribute_value(&event, "name")?;
+                        config.events.push(UiEvent {
+                            name: current_item_name.clone(),
+                            parameters: Vec::new(),
+                        });
+                    }
+                    b"param" => {
+                        let name = Self::get_attribute_value(&event, "name")?;
+                        let desc = Self::get_attribute_value(&event, "desc")?;
+
+                        if is_in_function_event {
+                            // remove this branching, only determine what vector to use
+                        } else {
+                            for item in config.events.iter_mut() {
+                                if &item.name == &current_item_name {
+                                    item.parameters.push((name, desc));
+                                    break;
+                                }
+                            }
+                        }
                     }
                     _ => (),
                 },

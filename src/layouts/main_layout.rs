@@ -21,6 +21,8 @@ const PATH_SECTION_LEFT_SIZE_PORTION: u16 = 3;
 const PATH_SECTION_RIGHT_SIZE_PORTION: u16 = 7;
 const ELEMENT_NAME_SECTION_LEFT_SIZE_PORTION: u16 = 1;
 const ELEMENT_NAME_SECTION_RIGHT_SIZE_PORTION: u16 = 4;
+const REMOVE_BUTTON_PORTION: u16 = 1;
+const LIST_ITEM_PORTION: u16 = 5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VAlign {
@@ -84,6 +86,12 @@ impl VAlign {
     const ALL: [VAlign; 3] = [VAlign::Top, VAlign::Center, VAlign::Bottom];
 }
 
+#[derive(Default)]
+pub struct UiEvent {
+    pub name: String,
+    pub parameters: Vec<(String, String)>, // array of pairs: name - description
+}
+
 enum EntityList {
     Functions,
     Events,
@@ -98,12 +106,16 @@ pub enum MainLayoutMessage {
     ShowFunctions,
     ShowEvents,
     EntityListAddClicked,
+    EntityListAddParameterClicked(usize), // item index
     GenerateClicked,
     AdditionalGfxExportArgsChanged(String),
     UiElementsTextChanged(String),
     UiElementTextChanged(String),
-    EntityListItemChanged(usize, String),
-    EntityListRemoveItem(String),
+    EntityListItemChanged(usize, String), // item index, item name
+    EntityListRemoveItem(usize),
+    EntityListParameterNameChanged(usize, usize, String), // item index, param index, param name
+    EntityListRemoveParameter(usize, usize),              // item index, param index
+    EntityListParameterDescriptionChanged(usize, usize, String), // item index, param index, param desc
     HorizontalAlignChanged(HAlign),
     VerticalAlignChanged(VAlign),
     FullscreenChanged(bool),
@@ -119,7 +131,7 @@ pub struct MainLayout {
     ui_element_name: String,
     current_list: EntityList,
     functions: Vec<String>,
-    events: Vec<String>,
+    events: Vec<UiEvent>,
     halign: Option<HAlign>,
     valign: Option<VAlign>,
     gfx_layer: usize,
@@ -354,6 +366,20 @@ impl MainLayout {
                 self.update_additional_gfxexport_args(args)
             }
             MainLayoutMessage::GenerateClicked => self.generate(app_config),
+            MainLayoutMessage::EntityListRemoveParameter(item_index, param_index) => {
+                self.remove_list_parameter(item_index, param_index)
+            }
+            MainLayoutMessage::EntityListParameterNameChanged(item_index, param_index, newname) => {
+                self.update_list_parameter_name(item_index, param_index, newname)
+            }
+            MainLayoutMessage::EntityListParameterDescriptionChanged(
+                item_index,
+                param_index,
+                newname,
+            ) => self.update_list_parameter_description(item_index, param_index, newname),
+            MainLayoutMessage::EntityListAddParameterClicked(item_index) => {
+                self.add_list_item_parameter(item_index)
+            }
         }
 
         Command::none()
@@ -389,34 +415,127 @@ impl MainLayout {
         );
         list = list.spacing(ELEMENT_SPACING);
 
-        // Get reference to current array.
-        let mut _vec_to_use = &self.functions;
+        // Fill list.
         match self.current_list {
             EntityList::Functions => {
-                _vec_to_use = &self.functions;
+                for (index, item) in self.functions.iter().enumerate() {
+                    list = list.push(
+                        Row::new()
+                            .push(
+                                TextInput::new(
+                                    "Function name",
+                                    &item,
+                                    move |name: String| -> MainLayoutMessage {
+                                        MainLayoutMessage::EntityListItemChanged(index, name)
+                                    },
+                                )
+                                .size(TEXT_SIZE)
+                                .padding(TEXT_INPUT_PADDING)
+                                .width(Length::FillPortion(LIST_ITEM_PORTION)),
+                            )
+                            .spacing(ELEMENT_SPACING)
+                            .push(
+                                Button::new(Text::new("Remove item").size(TEXT_SIZE))
+                                    .on_press(MainLayoutMessage::EntityListRemoveItem(index))
+                                    .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
+                            ),
+                    );
+                }
             }
             EntityList::Events => {
-                _vec_to_use = &self.events;
-            }
-        }
+                for (index, item) in self.events.iter().enumerate() {
+                    // Collect event parameters.
+                    let mut params = Column::new();
+                    for (param_index, (param_name, param_desc)) in
+                        item.parameters.iter().enumerate()
+                    {
+                        params = params.push(
+                            Row::new()
+                                .push(
+                                    Button::new(Text::new("Remove parameter").size(TEXT_SIZE))
+                                        .on_press(MainLayoutMessage::EntityListRemoveParameter(index, param_index))
+                                        .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
+                                )
+                                .spacing(ELEMENT_SPACING)
+                                .push(
+                                    Column::new().push(
+                                        TextInput::new(
+                                            "",
+                                            &param_name,
+                                            move |name: String| -> MainLayoutMessage {
+                                                MainLayoutMessage::EntityListParameterNameChanged(
+                                                    index,
+                                                    param_index,
+                                                    name,
+                                                )
+                                            },
+                                        )
+                                        .size(TEXT_SIZE)
+                                        .padding(TEXT_INPUT_PADDING),
+                                    )
+                                    .spacing(ELEMENT_SPACING)
+                                    .push(
+                                        TextInput::new(
+                                            "",
+                                            &param_desc,
+                                            move |name: String| -> MainLayoutMessage {
+                                                MainLayoutMessage::EntityListParameterDescriptionChanged(
+                                                    index,
+                                                    param_index,
+                                                    name,
+                                                )
+                                            },
+                                        )
+                                        .size(TEXT_SIZE)
+                                        .padding(TEXT_INPUT_PADDING),
+                                    )
+                                    .width(Length::FillPortion(LIST_ITEM_PORTION)),
+                                ),
+                        );
+                    }
 
-        // Fill list.
-        for (index, item) in _vec_to_use.iter().enumerate() {
-            list = list.push(
-                Row::new()
-                    .push(
-                        TextInput::new("name", &item, move |name: String| -> MainLayoutMessage {
-                            MainLayoutMessage::EntityListItemChanged(index, name)
-                        })
-                        .size(TEXT_SIZE)
-                        .padding(TEXT_INPUT_PADDING),
-                    )
-                    .spacing(ELEMENT_SPACING)
-                    .push(
-                        Button::new(Text::new("Remove").size(TEXT_SIZE))
-                            .on_press(MainLayoutMessage::EntityListRemoveItem(item.clone())),
-                    ),
-            );
+                    // Add "Add parameter" button.
+                    params = params.spacing(ELEMENT_SPACING).push(
+                        Button::new(
+                            Text::new("Add parameter")
+                                .size(TEXT_SIZE)
+                                .horizontal_alignment(Horizontal::Center),
+                        )
+                        .on_press(MainLayoutMessage::EntityListAddParameterClicked(index))
+                        .width(Length::Fill),
+                    );
+
+                    // Add event to list.
+                    list = list.push(
+                        Row::new()
+                            .push(
+                                Column::new()
+                                    .push(
+                                        TextInput::new(
+                                            "",
+                                            &item.name,
+                                            move |name: String| -> MainLayoutMessage {
+                                                MainLayoutMessage::EntityListItemChanged(
+                                                    index, name,
+                                                )
+                                            },
+                                        )
+                                        .size(TEXT_SIZE)
+                                        .padding(TEXT_INPUT_PADDING),
+                                    )
+                                    .spacing(ELEMENT_SPACING)
+                                    .push(params)
+                                    .width(Length::FillPortion(LIST_ITEM_PORTION)),
+                            )
+                            .spacing(ELEMENT_SPACING)
+                            .push(
+                                Button::new(Text::new("Remove item").size(TEXT_SIZE))
+                                    .on_press(MainLayoutMessage::EntityListRemoveItem(index))
+                                    .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
+                            ),
+                    );
+                }
+            }
         }
 
         // Add "Add" button to list.
@@ -536,52 +655,78 @@ impl MainLayout {
     }
 
     fn update_list_item(&mut self, index: usize, newname: String) {
-        // Get reference to current array.
-        let mut _vec_to_use = &mut self.functions;
         match self.current_list {
             EntityList::Functions => {
-                _vec_to_use = &mut self.functions;
+                self.functions[index] = newname;
             }
+            EntityList::Events => self.events[index].name = newname,
+        }
+    }
+
+    fn update_list_parameter_name(
+        &mut self,
+        item_index: usize,
+        param_index: usize,
+        newname: String,
+    ) {
+        match self.current_list {
+            EntityList::Functions => {}
             EntityList::Events => {
-                _vec_to_use = &mut self.events;
+                self.events[item_index].parameters[param_index].0 = newname;
             }
         }
+    }
 
-        _vec_to_use[index] = newname;
+    fn update_list_parameter_description(
+        &mut self,
+        item_index: usize,
+        param_index: usize,
+        newname: String,
+    ) {
+        match self.current_list {
+            EntityList::Functions => {}
+            EntityList::Events => {
+                self.events[item_index].parameters[param_index].1 = newname;
+            }
+        }
+    }
+
+    fn remove_list_parameter(&mut self, item_index: usize, param_index: usize) {
+        match self.current_list {
+            EntityList::Functions => {}
+            EntityList::Events => {
+                self.events[item_index].parameters.remove(param_index);
+            }
+        }
+    }
+
+    fn add_list_item_parameter(&mut self, item_index: usize) {
+        match self.current_list {
+            EntityList::Functions => {}
+            EntityList::Events => self.events[item_index].parameters.push((
+                String::from("Parameter name"),
+                String::from("Parameter description"),
+            )),
+        }
     }
 
     fn add_list_item(&mut self) {
-        // Get reference to current array.
-        let mut _vec_to_use = &mut self.functions;
         match self.current_list {
-            EntityList::Functions => {
-                _vec_to_use = &mut self.functions;
-            }
-            EntityList::Events => {
-                _vec_to_use = &mut self.events;
-            }
+            EntityList::Functions => self.functions.push(String::from("Function name")),
+            EntityList::Events => self.events.push(UiEvent {
+                name: String::from("Event name"),
+                parameters: Vec::new(),
+            }),
         }
-
-        _vec_to_use.push(String::from("name"));
     }
 
-    fn remove_list_item(&mut self, name: String) {
-        // Get reference to current array.
-        let mut _vec_to_use = &mut self.functions;
+    fn remove_list_item(&mut self, index: usize) {
         match self.current_list {
             EntityList::Functions => {
-                _vec_to_use = &mut self.functions;
+                self.functions.remove(index);
             }
             EntityList::Events => {
-                _vec_to_use = &mut self.events;
-            }
-        }
-
-        // Remove item.
-        for (i, item) in _vec_to_use.iter().enumerate() {
-            if item == &name {
-                _vec_to_use.remove(i);
-                break;
+                self.events.remove(index);
             }
         }
     }
@@ -719,18 +864,34 @@ impl MainLayout {
     }
 
     fn select_gfx_bin_path(&mut self, app_config: &mut ApplicationConfig) {
-        // Get path to GFxExport1.exe file.
-        let path = FileDialog::new()
-            .add_filter("GFxExport file", &["exe"])
-            .show_open_single_file()
-            .unwrap();
-        if path.is_none() {
-            return;
-        }
-        let path = path.unwrap();
+        #[cfg(windows)]
+        {
+            // Get path to GFxExport1.exe file.
+            let path = FileDialog::new()
+                .add_filter("GFxExport file", &["exe"])
+                .show_open_single_file()
+                .unwrap();
+            if path.is_none() {
+                return;
+            }
+            let path = path.unwrap();
 
-        // Save to UI.
-        self.path_to_gfxexport_bin = path.to_string_lossy().to_string();
+            // Save to UI.
+            self.path_to_gfxexport_bin = path.to_string_lossy().to_string();
+        }
+
+        #[cfg(not(windows))]
+        {
+            // Get path to GFxExport1 file.
+            let path = FileDialog::new().show_open_single_file().unwrap();
+            if path.is_none() {
+                return;
+            }
+            let path = path.unwrap();
+
+            // Save to UI.
+            self.path_to_gfxexport_bin = path.to_string_lossy().to_string();
+        }
 
         // Save to config.
         app_config.path_to_gfxexport_bin = self.path_to_gfxexport_bin.clone();
