@@ -11,12 +11,14 @@ use super::error::*;
 
 const CONFIG_DIR_NAME: &str = "CRYENGINE UI Helper";
 const CONFIG_FILE_NAME: &str = "config.ini";
-const CONFIG_PATHS_SECTION_NAME: &str = "paths";
+const CONFIG_GENERAL_SECTION_NAME: &str = "general";
 const CONFIG_PATH_TO_GFXEXPORT_BIN: &str = "path_to_gfxexport_bin";
+const CONFIG_ADDITIONAL_GFXEXPORT_ARGS: &str = "additional_gfxexport_args";
 
 #[derive(Debug)]
 pub struct ApplicationConfig {
     pub path_to_gfxexport_bin: String,
+    pub additional_gfxexport_args: String,
 }
 
 impl ApplicationConfig {
@@ -40,11 +42,21 @@ impl ApplicationConfig {
 
         // Read config.
         let path_to_gfxexport_bin =
-            config.get(CONFIG_PATHS_SECTION_NAME, CONFIG_PATH_TO_GFXEXPORT_BIN);
+            config.get(CONFIG_GENERAL_SECTION_NAME, CONFIG_PATH_TO_GFXEXPORT_BIN);
         if path_to_gfxexport_bin.is_none() {
             some_values_were_empty = true;
         } else {
             app_config.path_to_gfxexport_bin = path_to_gfxexport_bin.unwrap();
+        }
+
+        let additional_gfxexport_args = config.get(
+            CONFIG_GENERAL_SECTION_NAME,
+            CONFIG_ADDITIONAL_GFXEXPORT_ARGS,
+        );
+        if additional_gfxexport_args.is_none() {
+            some_values_were_empty = true;
+        } else {
+            app_config.additional_gfxexport_args = additional_gfxexport_args.unwrap();
         }
 
         // Resave if needed.
@@ -63,9 +75,15 @@ impl ApplicationConfig {
         let mut config = Ini::new();
 
         config.setstr(
-            CONFIG_PATHS_SECTION_NAME,
+            CONFIG_GENERAL_SECTION_NAME,
             CONFIG_PATH_TO_GFXEXPORT_BIN,
             Some(&self.path_to_gfxexport_bin),
+        );
+
+        config.setstr(
+            CONFIG_GENERAL_SECTION_NAME,
+            CONFIG_ADDITIONAL_GFXEXPORT_ARGS,
+            Some(&self.additional_gfxexport_args),
         );
 
         if let Err(e) = config.write(Self::get_config_file_path()) {
@@ -109,6 +127,7 @@ impl Default for ApplicationConfig {
     fn default() -> Self {
         ApplicationConfig {
             path_to_gfxexport_bin: String::new(),
+            additional_gfxexport_args: String::new(),
         }
     }
 }
