@@ -294,6 +294,13 @@ impl MainLayout {
                     .on_press(MainLayoutMessage::GenerateClicked)
                     .width(Length::Fill),
             )
+            .push(
+                Text::new(format!(
+                    "v{}, by Alexander Tretyakov",
+                    env!("CARGO_PKG_VERSION")
+                ))
+                .size(10),
+            )
             .padding(10)
             .into()
     }
