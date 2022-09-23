@@ -14,11 +14,13 @@ const CONFIG_FILE_NAME: &str = "config.ini";
 const CONFIG_GENERAL_SECTION_NAME: &str = "general";
 const CONFIG_PATH_TO_GFXEXPORT_BIN: &str = "path_to_gfxexport_bin";
 const CONFIG_ADDITIONAL_GFXEXPORT_ARGS: &str = "additional_gfxexport_args";
+const CONFIG_LAST_USED_SWF_DIR: &str = "last_used_swf_dir";
 
 #[derive(Debug)]
 pub struct ApplicationConfig {
     pub path_to_gfxexport_bin: String,
     pub additional_gfxexport_args: String,
+    pub last_used_swf_dir: String,
 }
 
 impl ApplicationConfig {
@@ -41,6 +43,7 @@ impl ApplicationConfig {
         let mut some_values_were_empty = false;
 
         // Read config.
+        // Read path to GFxExport binary.
         let path_to_gfxexport_bin =
             config.get(CONFIG_GENERAL_SECTION_NAME, CONFIG_PATH_TO_GFXEXPORT_BIN);
         if path_to_gfxexport_bin.is_none() {
@@ -52,6 +55,7 @@ impl ApplicationConfig {
             }
         }
 
+        // Read additional GFxExport arguments.
         let additional_gfxexport_args = config.get(
             CONFIG_GENERAL_SECTION_NAME,
             CONFIG_ADDITIONAL_GFXEXPORT_ARGS,
@@ -60,6 +64,17 @@ impl ApplicationConfig {
             some_values_were_empty = true;
         } else {
             app_config.additional_gfxexport_args = additional_gfxexport_args.unwrap();
+        }
+
+        // Read last used directory path for .swf files.
+        let last_used_swf_dir = config.get(CONFIG_GENERAL_SECTION_NAME, CONFIG_LAST_USED_SWF_DIR);
+        if last_used_swf_dir.is_none() {
+            some_values_were_empty = true;
+        } else {
+            let path = last_used_swf_dir.unwrap();
+            if Path::new(&path).exists() {
+                app_config.last_used_swf_dir = path;
+            }
         }
 
         // Resave if needed.
@@ -87,6 +102,12 @@ impl ApplicationConfig {
             CONFIG_GENERAL_SECTION_NAME,
             CONFIG_ADDITIONAL_GFXEXPORT_ARGS,
             Some(&self.additional_gfxexport_args),
+        );
+
+        config.setstr(
+            CONFIG_GENERAL_SECTION_NAME,
+            CONFIG_LAST_USED_SWF_DIR,
+            Some(&self.last_used_swf_dir),
         );
 
         if let Err(e) = config.write(Self::get_config_file_path()) {
@@ -131,6 +152,7 @@ impl Default for ApplicationConfig {
         ApplicationConfig {
             path_to_gfxexport_bin: String::new(),
             additional_gfxexport_args: String::new(),
+            last_used_swf_dir: String::new(),
         }
     }
 }

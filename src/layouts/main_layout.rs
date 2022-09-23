@@ -305,7 +305,7 @@ impl MainLayout {
     ) -> Command<ApplicationMessage> {
         match message {
             MainLayoutMessage::SelectPathToGfxExportBin => self.select_gfx_bin_path(app_config),
-            MainLayoutMessage::SelectPathToSwfFile => self.select_swf_file_path(),
+            MainLayoutMessage::SelectPathToSwfFile => self.select_swf_file_path(app_config),
             MainLayoutMessage::SelectPathToGfxOutput => self.select_gfx_output_path(),
             MainLayoutMessage::SelectPathToXmlOutput => self.select_xml_output_path(),
             MainLayoutMessage::UiElementsTextChanged(elements_name) => {
@@ -542,9 +542,10 @@ impl MainLayout {
         self.path_to_gfx_dir = path.to_string_lossy().to_string();
     }
 
-    fn select_swf_file_path(&mut self) {
+    fn select_swf_file_path(&mut self, app_config: &mut ApplicationConfig) {
         // Get path to .swf file.
         let path = FileDialog::new()
+            .set_location(&app_config.last_used_swf_dir)
             .add_filter("SWF Movie", &["swf"])
             .show_open_single_file()
             .unwrap();
@@ -565,6 +566,21 @@ impl MainLayout {
 
             self.path_to_gfx_dir = path_to_gfx.to_string_lossy().to_string();
             self.path_to_xml_dir = path_to_xml.to_string_lossy().to_string();
+
+            // Save directory to config.
+            app_config.last_used_swf_dir = path.parent().unwrap().to_string_lossy().to_string();
+            if let Err(app_error) = app_config.save() {
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Error")
+                    .set_text(&format!(
+                        "Failed to save configuration file to {}.\n\nError: {}",
+                        ApplicationConfig::get_config_file_path().to_string_lossy(),
+                        app_error
+                    ))
+                    .show_alert()
+                    .unwrap();
+            }
         }
 
         // Set UI elemnt names.
