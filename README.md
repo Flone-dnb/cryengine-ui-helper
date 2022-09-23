@@ -2,4 +2,4 @@
 
 TODO: screenshot
 
-This tool eases up the process of generating `.gfx` and `.xml` for you UI `.swf` file.
+Generate `.gfx` and `.xml` files for your UI `.swf` file in just a few clicks.
