@@ -18,10 +18,13 @@ const TEXT_SIZE: u16 = 20;
 const SMALL_TEXT_SIZE: u16 = 18;
 const ELEMENT_SPACING: u16 = 10;
 const TEXT_INPUT_PADDING: u16 = 4;
+// ----------------------------------------------
 const PATH_SECTION_LEFT_SIZE_PORTION: u16 = 3;
 const PATH_SECTION_RIGHT_SIZE_PORTION: u16 = 7;
+// ----------------------------------------------
 const ELEMENT_NAME_SECTION_LEFT_SIZE_PORTION: u16 = 1;
 const ELEMENT_NAME_SECTION_RIGHT_SIZE_PORTION: u16 = 4;
+// ----------------------------------------------
 const REMOVE_BUTTON_PORTION: u16 = 1;
 const LIST_ITEM_PORTION: u16 = 5;
 
@@ -161,6 +164,7 @@ pub enum MainLayoutMessage {
     AdditionalGfxExportArgsChanged(String),
     UiElementsTextChanged(String),
     UiElementTextChanged(String),
+    GfxLayerTextChanged(String),
     EntityListItemChanged(usize, String), // item index, item name
     EntityListRemoveItem(usize),
     EntityListParameterNameChanged(usize, usize, String), // item index, param index, param name
@@ -360,11 +364,14 @@ impl MainLayout {
                             .vertical_alignment(Vertical::Center),
                     )
                     .spacing(ELEMENT_SPACING)
-                    .push(PickList::new(
-                        &HAlign::ALL[..],
-                        self.halign,
-                        MainLayoutMessage::HorizontalAlignChanged,
-                    ))
+                    .push(
+                        PickList::new(
+                            &HAlign::ALL[..],
+                            self.halign,
+                            MainLayoutMessage::HorizontalAlignChanged,
+                        )
+                        .text_size(TEXT_SIZE),
+                    )
                     .spacing(ELEMENT_SPACING)
                     .push(
                         Text::new("Vertical alignment:")
@@ -372,17 +379,35 @@ impl MainLayout {
                             .vertical_alignment(Vertical::Center),
                     )
                     .spacing(ELEMENT_SPACING)
-                    .push(PickList::new(
-                        &VAlign::ALL[..],
-                        self.valign,
-                        MainLayoutMessage::VerticalAlignChanged,
-                    ))
+                    .push(
+                        PickList::new(
+                            &VAlign::ALL[..],
+                            self.valign,
+                            MainLayoutMessage::VerticalAlignChanged,
+                        )
+                        .text_size(TEXT_SIZE),
+                    )
                     .spacing(ELEMENT_SPACING)
-                    .push(Checkbox::new(
-                        self.fullscreen,
-                        "Fullscreen",
-                        MainLayoutMessage::FullscreenChanged,
-                    )),
+                    .push(
+                        Checkbox::new(
+                            self.fullscreen,
+                            "Fullscreen",
+                            MainLayoutMessage::FullscreenChanged,
+                        )
+                        .text_size(TEXT_SIZE),
+                    )
+                    .spacing(ELEMENT_SPACING)
+                    .push(Text::new("GFx layer").size(TEXT_SIZE))
+                    .spacing(ELEMENT_SPACING)
+                    .push(
+                        TextInput::new(
+                            "",
+                            &self.gfx_layer.to_string(),
+                            MainLayoutMessage::GfxLayerTextChanged,
+                        )
+                        .padding(TEXT_INPUT_PADDING)
+                        .size(TEXT_SIZE),
+                    ),
             )
             .spacing(ELEMENT_SPACING)
             .push(
@@ -460,6 +485,7 @@ impl MainLayout {
             MainLayoutMessage::EntityListAddParameterClicked(item_index) => {
                 self.add_list_item_parameter(item_index)
             }
+            MainLayoutMessage::GfxLayerTextChanged(gfx_layer) => self.update_gfx_layer(gfx_layer),
         }
 
         Command::none()
@@ -1000,6 +1026,23 @@ impl MainLayout {
 
     fn update_vertical_align(&mut self, valign: VAlign) {
         self.valign = Some(valign);
+    }
+
+    fn update_gfx_layer(&mut self, gfx_layer: String) {
+        let result = gfx_layer.parse::<usize>();
+        if let Err(e) = result {
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_title("Error")
+                .set_text(&format!(
+                    "Failed to convert GFx layer to unsigned integer. Error: {}",
+                    e,
+                ))
+                .show_alert()
+                .unwrap();
+            return;
+        }
+        self.gfx_layer = result.unwrap();
     }
 
     fn update_ui_elements_name(&mut self, elements_name: String) {
