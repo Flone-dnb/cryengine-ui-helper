@@ -8,6 +8,7 @@ use native_dialog::{FileDialog, MessageDialog, MessageType};
 
 // STD.
 use std::path::Path;
+use std::process;
 
 // Custom.
 use crate::{managers::xml_manager::*, misc::config::ApplicationConfig, ApplicationMessage};
@@ -787,7 +788,36 @@ impl MainLayout {
                 .set_type(MessageType::Error)
                 .set_title("Error")
                 .set_text(&format!("Failed to write .xml file, error: {}", app_error))
-                .show_confirm()
+                .show_alert()
+                .unwrap();
+            return;
+        }
+
+        // Split GFxExport additional arguments.
+        let mut args = self
+            .additional_gfxexport_args
+            .split_ascii_whitespace()
+            .collect::<Vec<&str>>();
+        args.push("-d"); // specify output directory
+        args.push(&self.path_to_gfx_dir);
+
+        // Merge arguments into one string to show to user.
+        let mut args_to_show = String::new();
+        for arg in args.iter() {
+            args_to_show += &format!("\"{}\" ", arg);
+        }
+
+        // Run GFxExport.
+        if let Err(e) = process::Command::new(&self.path_to_gfxexport_bin)
+            .arg(&self.path_to_swf_file)
+            .args(args)
+            .output()
+        {
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_title("Error")
+                .set_text(&format!("GFxExport failed, error: {}", e))
+                .show_alert()
                 .unwrap();
             return;
         }
@@ -795,7 +825,16 @@ impl MainLayout {
         MessageDialog::new()
             .set_type(MessageType::Info)
             .set_title("Info")
-            .set_text("Successfully generated .gfx and .xml files.")
+            .set_text(&format!(
+                "Successfully generated .gfx and .xml files.\n\n\
+                Output .xml file: {}\n\n\
+                Output .gfx file: {}\n\n\
+                Used GFxExport arguments: \"{}\" {}",
+                path_to_xml_file.to_string_lossy(),
+                path_to_gfx_file.to_string_lossy(),
+                &self.path_to_swf_file,
+                &args_to_show
+            ))
             .show_alert()
             .unwrap();
     }
