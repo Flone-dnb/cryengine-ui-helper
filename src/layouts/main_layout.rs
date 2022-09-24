@@ -7,8 +7,8 @@ use iced::{
 use native_dialog::{FileDialog, MessageDialog, MessageType};
 
 // STD.
-use std::path::Path;
 use std::process;
+use std::{fs, path::Path};
 
 // Custom.
 use crate::{managers::xml_manager::*, misc::config::ApplicationConfig, ApplicationMessage};
@@ -762,6 +762,36 @@ impl MainLayout {
                 .show_confirm()
                 .unwrap();
             if !yes {
+                return;
+            }
+        }
+
+        // Make sure output directories exist.
+        if !Path::new(&self.path_to_xml_dir).exists() {
+            if let Err(e) = fs::create_dir_all(&self.path_to_xml_dir) {
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Error")
+                    .set_text(&format!(
+                        "Failed to create output directory for .xml files, error: {}",
+                        e
+                    ))
+                    .show_alert()
+                    .unwrap();
+                return;
+            }
+        }
+        if !Path::new(&self.path_to_gfx_dir).exists() {
+            if let Err(e) = fs::create_dir_all(&self.path_to_gfx_dir) {
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Error")
+                    .set_text(&format!(
+                        "Failed to create output directory for .gfx files, error: {}",
+                        e
+                    ))
+                    .show_alert()
+                    .unwrap();
                 return;
             }
         }
