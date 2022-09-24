@@ -3,7 +3,7 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::reader::Reader;
 
 // Custom.
-use crate::layouts::main_layout::{HAlign, UiRunnable, VAlign};
+use crate::layouts::main_layout::{HAlign, ParameterType, UiParameter, UiRunnable, VAlign};
 use crate::misc::error::AppError;
 
 #[derive(Default)]
@@ -114,6 +114,7 @@ impl XmlManager {
                     b"param" => {
                         let name = Self::get_attribute_value(&event, "name")?;
                         let desc = Self::get_attribute_value(&event, "desc")?;
+                        let type_ = Self::get_attribute_value(&event, "type");
 
                         let mut _vec_to_use = &mut config.events;
                         if is_in_function_event {
@@ -122,7 +123,25 @@ impl XmlManager {
 
                         for item in _vec_to_use.iter_mut() {
                             if &item.name == &current_item_name {
-                                item.parameters.push((name, desc));
+                                let mut parameter_type = ParameterType::Any;
+                                if type_.is_ok() {
+                                    // optional parameter
+                                    match type_.unwrap().to_lowercase().as_str() {
+                                        "int" => parameter_type = ParameterType::Int,
+                                        "bool" => parameter_type = ParameterType::Bool,
+                                        "string" => parameter_type = ParameterType::String,
+                                        "float" => parameter_type = ParameterType::Float,
+                                        _ => {}
+                                    }
+                                }
+
+                                let parameter = UiParameter {
+                                    name,
+                                    description: desc,
+                                    type_: Some(parameter_type),
+                                };
+                                item.parameters.push(parameter);
+
                                 break;
                             }
                         }

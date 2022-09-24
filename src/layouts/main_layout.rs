@@ -86,11 +86,59 @@ impl VAlign {
     const ALL: [VAlign; 3] = [VAlign::Top, VAlign::Center, VAlign::Bottom];
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParameterType {
+    Any,
+    Int,
+    Bool,
+    String,
+    Float,
+}
+
+impl Default for ParameterType {
+    fn default() -> Self {
+        Self::Any
+    }
+}
+
+impl std::fmt::Display for ParameterType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ParameterType::Any => "Any",
+                ParameterType::Int => "Int",
+                ParameterType::Bool => "Bool",
+                ParameterType::String => "String",
+                ParameterType::Float => "Float",
+            }
+        )
+    }
+}
+
+impl ParameterType {
+    const ALL: [ParameterType; 5] = [
+        ParameterType::Any,
+        ParameterType::Int,
+        ParameterType::Bool,
+        ParameterType::String,
+        ParameterType::Float,
+    ];
+}
+
+#[derive(Default)]
+pub struct UiParameter {
+    pub name: String,
+    pub description: String,
+    pub type_: Option<ParameterType>, // using underscore because `type` is a keyword
+}
+
 /// Function or Event
 #[derive(Default)]
 pub struct UiRunnable {
     pub name: String,
-    pub parameters: Vec<(String, String)>, // array of pairs: name - description
+    pub parameters: Vec<UiParameter>, // array of pairs: name - description
 }
 
 enum EntityList {
@@ -117,6 +165,7 @@ pub enum MainLayoutMessage {
     EntityListParameterNameChanged(usize, usize, String), // item index, param index, param name
     EntityListRemoveParameter(usize, usize),              // item index, param index
     EntityListParameterDescriptionChanged(usize, usize, String), // item index, param index, param desc
+    EntityListParameterTypeChanged(usize, usize, ParameterType), // item index, param index, param type
     HorizontalAlignChanged(HAlign),
     VerticalAlignChanged(VAlign),
     FullscreenChanged(bool),
@@ -344,6 +393,7 @@ impl MainLayout {
             .spacing(ELEMENT_SPACING)
             .push(self.get_entity_list())
             .spacing(ELEMENT_SPACING)
+            .spacing(ELEMENT_SPACING)
             .push(
                 Button::new(Text::new("Generate .gfx and .xml files").size(TEXT_SIZE))
                     .on_press(MainLayoutMessage::GenerateClicked)
@@ -398,6 +448,9 @@ impl MainLayout {
             MainLayoutMessage::EntityListParameterNameChanged(item_index, param_index, newname) => {
                 self.update_list_parameter_name(item_index, param_index, newname)
             }
+            MainLayoutMessage::EntityListParameterTypeChanged(item_index, param_index, type_) => {
+                self.update_list_parameter_type(item_index, param_index, type_)
+            }
             MainLayoutMessage::EntityListParameterDescriptionChanged(
                 item_index,
                 param_index,
@@ -429,20 +482,22 @@ impl MainLayout {
         for (index, item) in _vec_to_use.iter().enumerate() {
             // Collect parameters.
             let mut params = Column::new();
-            for (param_index, (param_name, param_desc)) in item.parameters.iter().enumerate() {
+            for (param_index, parameter) in item.parameters.iter().enumerate() {
                 params = params.push(
                             Row::new()
-                                .push(
-                                    Button::new(Text::new("Remove parameter").size(TEXT_SIZE))
-                                        .on_press(MainLayoutMessage::EntityListRemoveParameter(index, param_index))
-                                        .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
-                                )
+                                    .push(PickList::new(
+                                &ParameterType::ALL[..],
+                                parameter.type_,
+                            move |type_: ParameterType| -> MainLayoutMessage {
+                                    MainLayoutMessage::EntityListParameterTypeChanged(index, param_index, type_)
+                                },
+                                ))
                                 .spacing(ELEMENT_SPACING)
                                 .push(
                                     Column::new().push(
                                         TextInput::new(
                                             "",
-                                            &param_name,
+                                            &parameter.name,
                                             move |name: String| -> MainLayoutMessage {
                                                 MainLayoutMessage::EntityListParameterNameChanged(
                                                     index,
@@ -458,7 +513,7 @@ impl MainLayout {
                                     .push(
                                         TextInput::new(
                                             "",
-                                            &param_desc,
+                                            &parameter.description,
                                             move |name: String| -> MainLayoutMessage {
                                                 MainLayoutMessage::EntityListParameterDescriptionChanged(
                                                     index,
@@ -471,6 +526,12 @@ impl MainLayout {
                                         .padding(TEXT_INPUT_PADDING),
                                     )
                                     .width(Length::FillPortion(LIST_ITEM_PORTION)),
+                                )
+                                .spacing(ELEMENT_SPACING)
+                                .push(
+                                    Button::new(Text::new("Remove parameter").size(TEXT_SIZE))
+                                        .on_press(MainLayoutMessage::EntityListRemoveParameter(index, param_index))
+                                        .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
                                 ),
                         );
             }
@@ -642,6 +703,22 @@ impl MainLayout {
         }
     }
 
+    fn update_list_parameter_type(
+        &mut self,
+        item_index: usize,
+        param_index: usize,
+        type_: ParameterType,
+    ) {
+        match self.current_list {
+            EntityList::Functions => {
+                self.functions[item_index].parameters[param_index].type_ = Some(type_);
+            }
+            EntityList::Events => {
+                self.events[item_index].parameters[param_index].type_ = Some(type_);
+            }
+        }
+    }
+
     fn update_list_parameter_name(
         &mut self,
         item_index: usize,
@@ -650,10 +727,10 @@ impl MainLayout {
     ) {
         match self.current_list {
             EntityList::Functions => {
-                self.functions[item_index].parameters[param_index].0 = newname;
+                self.functions[item_index].parameters[param_index].name = newname;
             }
             EntityList::Events => {
-                self.events[item_index].parameters[param_index].0 = newname;
+                self.events[item_index].parameters[param_index].name = newname;
             }
         }
     }
@@ -666,10 +743,10 @@ impl MainLayout {
     ) {
         match self.current_list {
             EntityList::Functions => {
-                self.functions[item_index].parameters[param_index].1 = newname;
+                self.functions[item_index].parameters[param_index].description = newname;
             }
             EntityList::Events => {
-                self.events[item_index].parameters[param_index].1 = newname;
+                self.events[item_index].parameters[param_index].description = newname;
             }
         }
     }
@@ -684,18 +761,18 @@ impl MainLayout {
     }
 
     fn add_list_item_parameter(&mut self, item_index: usize) {
+        let parameter = UiParameter {
+            name: String::from("Parameter name"),
+            description: String::from("Parameter description"),
+            type_: Some(ParameterType::Any),
+        };
+
         match self.current_list {
             EntityList::Functions => {
-                self.functions[item_index].parameters.push((
-                    String::from("Parameter name"),
-                    String::from("Parameter description"),
-                ));
+                self.functions[item_index].parameters.push(parameter);
             }
             EntityList::Events => {
-                self.events[item_index].parameters.push((
-                    String::from("Parameter name"),
-                    String::from("Parameter description"),
-                ));
+                self.events[item_index].parameters.push(parameter);
             }
         }
     }
