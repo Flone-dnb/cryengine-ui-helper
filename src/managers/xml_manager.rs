@@ -1,5 +1,9 @@
+use std::fs::OpenOptions;
+use std::io::{Cursor, Write};
+
+use quick_xml::Writer;
 // External.
-use quick_xml::events::{BytesStart, Event};
+use quick_xml::events::{BytesEnd, BytesStart, Event};
 use quick_xml::reader::Reader;
 
 // Custom.
@@ -10,6 +14,7 @@ use crate::misc::error::AppError;
 pub struct XmlConfig {
     pub ui_elements_name: String,
     pub ui_element_name: String,
+    pub gfx_file_name: String,
     pub gfx_layer: usize,
     pub fullscreen: bool,
     pub halign: HAlign,
@@ -21,6 +26,217 @@ pub struct XmlConfig {
 pub struct XmlManager;
 
 impl XmlManager {
+    pub fn write_config(config: XmlConfig, path_to_config: &str) -> Result<(), AppError> {
+        let mut writer = Writer::new_with_indent(Cursor::new(Vec::new()), b' ', 4);
+
+        // Write <UIElements> tag.
+        let mut element = BytesStart::new("UIElements");
+        element.push_attribute(("name", config.ui_elements_name.as_str()));
+        if let Err(e) = writer.write_event(Event::Start(element)) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        // Write <UIElement> tag.
+        let mut element = BytesStart::new("UIElement");
+        element.push_attribute(("name", config.ui_element_name.as_str()));
+        if let Err(e) = writer.write_event(Event::Start(element)) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        // Write <GFx> tag.
+        let mut element = BytesStart::new("GFx");
+        element.push_attribute(("file", config.gfx_file_name.as_str()));
+        element.push_attribute(("layer", config.gfx_layer.to_string().as_str()));
+        if let Err(e) = writer.write_event(Event::Start(element)) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        // Write <Constraints> tag.
+        let element = BytesStart::new("Constraints");
+        if let Err(e) = writer.write_event(Event::Start(element)) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        // Write <Align> tag.
+        let mut element = BytesStart::new("Align");
+        if config.fullscreen {
+            element.push_attribute(("mode", "fullscreen"));
+            element.push_attribute(("scale", "1"));
+            element.push_attribute(("maximize", "1"));
+        } else {
+            element.push_attribute(("mode", "dynamic"));
+            element.push_attribute(("valign", config.valign.to_string().as_str()));
+            element.push_attribute(("halign", config.halign.to_string().as_str()));
+        }
+        if let Err(e) = writer.write_event(Event::Empty(element)) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        // Write </Constraints> tag.
+        let element = BytesEnd::new("Constraints");
+        if let Err(e) = writer.write_event(Event::End(element)) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        // Write </GFx> tag.
+        let element = BytesEnd::new("GFx");
+        if let Err(e) = writer.write_event(Event::End(element)) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        if !config.functions.is_empty() {
+            // Write <functions> tag.
+            let element = BytesStart::new("functions");
+            if let Err(e) = writer.write_event(Event::Start(element)) {
+                return Err(AppError::new(&e.to_string()));
+            }
+
+            for function in config.functions.iter() {
+                if function.parameters.is_empty() {
+                    // Write <function> tag.
+                    let mut element = BytesStart::new("function");
+                    element.push_attribute(("name", function.name.as_str()));
+                    element.push_attribute(("funcname", function.name.as_str()));
+                    if let Err(e) = writer.write_event(Event::Empty(element)) {
+                        return Err(AppError::new(&e.to_string()));
+                    }
+
+                    continue;
+                }
+
+                // Write <function> tag.
+                let mut element = BytesStart::new("function");
+                element.push_attribute(("name", function.name.as_str()));
+                element.push_attribute(("funcname", function.name.as_str()));
+                if let Err(e) = writer.write_event(Event::Start(element)) {
+                    return Err(AppError::new(&e.to_string()));
+                }
+
+                for parameter in function.parameters.iter() {
+                    // Write <param> tag.
+                    let mut element = BytesStart::new("param");
+                    element.push_attribute(("name", parameter.name.as_str()));
+                    if !parameter.description.is_empty() {
+                        element.push_attribute(("desc", parameter.description.as_str()));
+                    }
+                    if parameter.type_.is_some() && parameter.type_ != Some(ParameterType::Any) {
+                        element.push_attribute((
+                            "type",
+                            parameter.type_.unwrap().to_string().as_str(),
+                        ));
+                    }
+
+                    if let Err(e) = writer.write_event(Event::Empty(element)) {
+                        return Err(AppError::new(&e.to_string()));
+                    }
+                }
+
+                // Write </function> tag.
+                let element = BytesEnd::new("function");
+                if let Err(e) = writer.write_event(Event::End(element)) {
+                    return Err(AppError::new(&e.to_string()));
+                }
+            }
+
+            // Write </functions> tag.
+            let element = BytesEnd::new("functions");
+            if let Err(e) = writer.write_event(Event::End(element)) {
+                return Err(AppError::new(&e.to_string()));
+            }
+        }
+
+        if !config.events.is_empty() {
+            // Write <events> tag.
+            let element = BytesStart::new("events");
+            if let Err(e) = writer.write_event(Event::Start(element)) {
+                return Err(AppError::new(&e.to_string()));
+            }
+
+            for event in config.events.iter() {
+                if event.parameters.is_empty() {
+                    // Write <event> tag.
+                    let mut element = BytesStart::new("event");
+                    element.push_attribute(("name", event.name.as_str()));
+                    element.push_attribute(("fscommand", event.name.as_str()));
+                    if let Err(e) = writer.write_event(Event::Empty(element)) {
+                        return Err(AppError::new(&e.to_string()));
+                    }
+
+                    continue;
+                }
+
+                // Write <event> tag.
+                let mut element = BytesStart::new("event");
+                element.push_attribute(("name", event.name.as_str()));
+                element.push_attribute(("fscommand", event.name.as_str()));
+                if let Err(e) = writer.write_event(Event::Start(element)) {
+                    return Err(AppError::new(&e.to_string()));
+                }
+
+                for parameter in event.parameters.iter() {
+                    // Write <param> tag.
+                    let mut element = BytesStart::new("param");
+                    element.push_attribute(("name", parameter.name.as_str()));
+                    if !parameter.description.is_empty() {
+                        element.push_attribute(("desc", parameter.description.as_str()));
+                    }
+                    if parameter.type_.is_some() && parameter.type_ != Some(ParameterType::Any) {
+                        element.push_attribute((
+                            "type",
+                            parameter.type_.unwrap().to_string().as_str(),
+                        ));
+                    }
+
+                    if let Err(e) = writer.write_event(Event::Empty(element)) {
+                        return Err(AppError::new(&e.to_string()));
+                    }
+                }
+
+                // Write </event> tag.
+                let element = BytesEnd::new("event");
+                if let Err(e) = writer.write_event(Event::End(element)) {
+                    return Err(AppError::new(&e.to_string()));
+                }
+            }
+
+            // Write </events> tag.
+            let element = BytesEnd::new("events");
+            if let Err(e) = writer.write_event(Event::End(element)) {
+                return Err(AppError::new(&e.to_string()));
+            }
+        }
+
+        // Write </UIElement> tag.
+        let element = BytesEnd::new("UIElement");
+        if let Err(e) = writer.write_event(Event::End(element)) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        // Write </UIElements> tag.
+        let element = BytesEnd::new("UIElements");
+        if let Err(e) = writer.write_event(Event::End(element)) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        let result = writer.into_inner().into_inner();
+
+        // Write result to file.
+        let file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(path_to_config);
+        if let Err(e) = file {
+            return Err(AppError::new(&e.to_string()));
+        }
+        let mut file = file.unwrap();
+
+        if let Err(e) = file.write_all(&result) {
+            return Err(AppError::new(&e.to_string()));
+        }
+
+        Ok(())
+    }
     pub fn read_config(path_to_config: &str) -> Result<XmlConfig, AppError> {
         let reader = Reader::from_file(path_to_config);
         if let Err(e) = reader {

@@ -56,9 +56,9 @@ impl std::fmt::Display for VAlign {
             f,
             "{}",
             match self {
-                VAlign::Top => "Top",
-                VAlign::Center => "Center",
-                VAlign::Bottom => "Bottom",
+                VAlign::Top => "top",
+                VAlign::Center => "center",
+                VAlign::Bottom => "bottom",
             }
         )
     }
@@ -70,9 +70,9 @@ impl std::fmt::Display for HAlign {
             f,
             "{}",
             match self {
-                HAlign::Left => "Left",
-                HAlign::Center => "Center",
-                HAlign::Right => "Right",
+                HAlign::Left => "left",
+                HAlign::Center => "center",
+                HAlign::Right => "right",
             }
         )
     }
@@ -107,11 +107,11 @@ impl std::fmt::Display for ParameterType {
             f,
             "{}",
             match self {
-                ParameterType::Any => "Any",
-                ParameterType::Int => "Int",
-                ParameterType::Bool => "Bool",
-                ParameterType::String => "String",
-                ParameterType::Float => "Float",
+                ParameterType::Any => "any",
+                ParameterType::Int => "int",
+                ParameterType::Bool => "bool",
+                ParameterType::String => "string",
+                ParameterType::Float => "float",
             }
         )
     }
@@ -127,7 +127,7 @@ impl ParameterType {
     ];
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct UiParameter {
     pub name: String,
     pub description: String,
@@ -135,7 +135,7 @@ pub struct UiParameter {
 }
 
 /// Function or Event
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct UiRunnable {
     pub name: String,
     pub parameters: Vec<UiParameter>, // array of pairs: name - description
@@ -615,6 +615,49 @@ impl MainLayout {
         Ok(path.to_string_lossy().to_string())
     }
 
+    fn are_all_required_fields_filled(&self) -> bool {
+        if self.path_to_gfxexport_bin.is_empty() {
+            Self::show_message_about_empty_field("Path to GFxExport");
+            return false;
+        }
+
+        if self.path_to_swf_file.is_empty() {
+            Self::show_message_about_empty_field("Path to .swf file");
+            return false;
+        }
+
+        if self.path_to_gfx_dir.is_empty() {
+            Self::show_message_about_empty_field("Output directory for .gfx files");
+            return false;
+        }
+
+        if self.path_to_xml_dir.is_empty() {
+            Self::show_message_about_empty_field("Output directory for .xml files");
+            return false;
+        }
+
+        if self.ui_elements_name.is_empty() {
+            Self::show_message_about_empty_field("Elements name");
+            return false;
+        }
+
+        if self.ui_element_name.is_empty() {
+            Self::show_message_about_empty_field("Element name");
+            return false;
+        }
+
+        return true;
+    }
+
+    fn show_message_about_empty_field(field_name: &str) {
+        MessageDialog::new()
+            .set_type(MessageType::Error)
+            .set_title("Error")
+            .set_text(&format!("Field \"{}\" must be filled.", field_name))
+            .show_alert()
+            .unwrap();
+    }
+
     fn get_data_from_existing_xml(&mut self, path_to_xml_file: &str) {
         if !Path::new(path_to_xml_file).exists() {
             return;
@@ -663,6 +706,10 @@ impl MainLayout {
     }
 
     fn generate(&mut self, app_config: &mut ApplicationConfig) {
+        if !self.are_all_required_fields_filled() {
+            return;
+        }
+
         // Save additional GFxExport arguments to config.
         app_config.additional_gfxexport_args = self.additional_gfxexport_args.clone();
         if let Err(app_error) = app_config.save() {
@@ -678,7 +725,72 @@ impl MainLayout {
                 .unwrap();
         }
 
-        // TODO
+        // Check .swf file name.
+        if Path::new(&self.path_to_swf_file).file_stem().is_none() {
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_title("Error")
+                .set_text("*.swf file should have a file name.")
+                .show_alert()
+                .unwrap();
+            return;
+        }
+
+        let file_name = Path::new(&self.path_to_swf_file)
+            .file_stem()
+            .unwrap()
+            .to_string_lossy();
+
+        // Construct path to output .xml file.
+        let mut path_to_xml_file = Path::new(&self.path_to_xml_dir).to_path_buf();
+        path_to_xml_file.push(format!("{}.xml", file_name.to_string()));
+
+        // Construct path to output .gfx file.
+        let mut path_to_gfx_file = Path::new(&self.path_to_gfx_dir).to_path_buf();
+        path_to_gfx_file.push(format!("{}.gfx", file_name.to_string()));
+
+        // Check if .xml file already exists.
+        if path_to_xml_file.exists() {
+            let yes = MessageDialog::new()
+                .set_type(MessageType::Warning)
+                .set_title("Warning")
+                .set_text(&format!(
+                    "Output .xml file \"{}\" already exists, do you want to overwrite it?",
+                    path_to_xml_file.to_string_lossy().to_string()
+                ))
+                .show_confirm()
+                .unwrap();
+            if !yes {
+                return;
+            }
+        }
+
+        // Construct config.
+        let config = XmlConfig {
+            ui_elements_name: self.ui_elements_name.clone(),
+            ui_element_name: self.ui_element_name.clone(),
+            gfx_file_name: format!("{}.gfx", file_name),
+            gfx_layer: self.gfx_layer,
+            fullscreen: self.fullscreen,
+            halign: self.halign.unwrap_or(HAlign::Center),
+            valign: self.valign.unwrap_or(VAlign::Center),
+            functions: self.functions.clone(),
+            events: self.events.clone(),
+        };
+
+        // Write to file.
+        if let Err(app_error) = XmlManager::write_config(
+            config,
+            path_to_xml_file.to_string_lossy().to_string().as_str(),
+        ) {
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_title("Error")
+                .set_text(&format!("Failed to write .xml file, error: {}", app_error))
+                .show_confirm()
+                .unwrap();
+            return;
+        }
 
         MessageDialog::new()
             .set_type(MessageType::Info)
