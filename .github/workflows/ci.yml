@@ -1,0 +1,22 @@
+name: Rust
+
+on: [push, pull_request, pull_request_review]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{matrix.os}}
+    steps:
+    - name: checkout repository
+      uses: actions/checkout@v3
+    - name: fmt
+      run: cargo fmt --check --all
+    - name: build
+      run: cargo build
+    - name: clippy
+      run: cargo clippy
