@@ -338,11 +338,11 @@ impl XmlManager {
                         }
 
                         for item in _vec_to_use.iter_mut() {
-                            if &item.name == &current_item_name {
+                            if item.name == current_item_name {
                                 let mut parameter_type = ParameterType::Any;
-                                if type_.is_ok() {
+                                if let Ok(read_type) = type_ {
                                     // optional parameter
-                                    match type_.unwrap().to_lowercase().as_str() {
+                                    match read_type.to_lowercase().as_str() {
                                         "int" => parameter_type = ParameterType::Int,
                                         "bool" => parameter_type = ParameterType::Bool,
                                         "string" => parameter_type = ParameterType::String,

@@ -681,7 +681,7 @@ impl MainLayout {
             return false;
         }
 
-        return true;
+        true
     }
 
     fn show_message_about_empty_field(field_name: &str) {
@@ -778,11 +778,11 @@ impl MainLayout {
 
         // Construct path to output .xml file.
         let mut path_to_xml_file = Path::new(&self.path_to_xml_dir).to_path_buf();
-        path_to_xml_file.push(format!("{}.xml", file_name.to_string()));
+        path_to_xml_file.push(format!("{}.xml", file_name));
 
         // Construct path to output .gfx file.
         let mut path_to_gfx_file = Path::new(&self.path_to_gfx_dir).to_path_buf();
-        path_to_gfx_file.push(format!("{}.gfx", file_name.to_string()));
+        path_to_gfx_file.push(format!("{}.gfx", file_name));
 
         // Check if .xml file already exists.
         if path_to_xml_file.exists() {
@@ -791,7 +791,7 @@ impl MainLayout {
                 .set_title("Warning")
                 .set_text(&format!(
                     "Output .xml file \"{}\" already exists, do you want to overwrite it?",
-                    path_to_xml_file.to_string_lossy().to_string()
+                    path_to_xml_file.to_string_lossy()
                 ))
                 .show_confirm()
                 .unwrap();
@@ -868,7 +868,7 @@ impl MainLayout {
         // Merge arguments into one string to show to user.
         let mut args_to_show = String::new();
         for arg in args.iter() {
-            args_to_show += &format!("\"{}\" ", arg);
+            args_to_show = format!("{}\"{}\" ", args_to_show, arg);
         }
 
         // Run GFxExport.

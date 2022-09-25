@@ -98,9 +98,7 @@ impl button::StyleSheet for Theme {
     fn disabled(&self, style: Self::Style) -> button::Appearance {
         let active = self.active(style);
 
-        match style {
-            _ => button::Appearance { ..active },
-        }
+        button::Appearance { ..active }
     }
 
     fn pressed(&self, style: Self::Style) -> button::Appearance {

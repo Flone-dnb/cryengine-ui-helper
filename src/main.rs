@@ -63,7 +63,7 @@ impl Application for ApplicationState {
             Layout::Main => self
                 .main_layout
                 .view()
-                .map(move |message| ApplicationMessage::MainLayoutMessage(message)),
+                .map(ApplicationMessage::MainLayoutMessage),
         }
     }
 
@@ -83,9 +83,11 @@ fn main() -> iced::Result {
     };
 
     // Prepare window settings.
-    let mut window_settings = window::Settings::default();
-    window_settings.size = (window_size.width, window_size.height);
-    window_settings.position = Position::Centered;
+    let window_settings = window::Settings {
+        size: (window_size.width, window_size.height),
+        position: Position::Centered,
+        ..window::Settings::default()
+    };
 
     ApplicationState::run(Settings {
         antialiasing: true,

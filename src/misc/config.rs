@@ -16,7 +16,7 @@ const CONFIG_PATH_TO_GFXEXPORT_BIN: &str = "path_to_gfxexport_bin";
 const CONFIG_ADDITIONAL_GFXEXPORT_ARGS: &str = "additional_gfxexport_args";
 const CONFIG_LAST_USED_SWF_DIR: &str = "last_used_swf_dir";
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct ApplicationConfig {
     pub path_to_gfxexport_bin: String,
     pub additional_gfxexport_args: String,
@@ -46,13 +46,12 @@ impl ApplicationConfig {
         // Read path to GFxExport binary.
         let path_to_gfxexport_bin =
             config.get(CONFIG_GENERAL_SECTION_NAME, CONFIG_PATH_TO_GFXEXPORT_BIN);
-        if path_to_gfxexport_bin.is_none() {
-            some_values_were_empty = true;
-        } else {
-            let path = path_to_gfxexport_bin.unwrap();
+        if let Some(path) = path_to_gfxexport_bin {
             if Path::new(&path).exists() {
                 app_config.path_to_gfxexport_bin = path;
             }
+        } else {
+            some_values_were_empty = true;
         }
 
         // Read additional GFxExport arguments.
@@ -60,21 +59,20 @@ impl ApplicationConfig {
             CONFIG_GENERAL_SECTION_NAME,
             CONFIG_ADDITIONAL_GFXEXPORT_ARGS,
         );
-        if additional_gfxexport_args.is_none() {
-            some_values_were_empty = true;
+        if let Some(args) = additional_gfxexport_args {
+            app_config.additional_gfxexport_args = args;
         } else {
-            app_config.additional_gfxexport_args = additional_gfxexport_args.unwrap();
+            some_values_were_empty = true;
         }
 
         // Read last used directory path for .swf files.
         let last_used_swf_dir = config.get(CONFIG_GENERAL_SECTION_NAME, CONFIG_LAST_USED_SWF_DIR);
-        if last_used_swf_dir.is_none() {
-            some_values_were_empty = true;
-        } else {
-            let path = last_used_swf_dir.unwrap();
+        if let Some(path) = last_used_swf_dir {
             if Path::new(&path).exists() {
                 app_config.last_used_swf_dir = path;
             }
+        } else {
+            some_values_were_empty = true;
         }
 
         // Resave if needed.
@@ -143,16 +141,6 @@ impl ApplicationConfig {
         #[cfg(not(any(windows, unix)))]
         {
             compile_error!("Client is not implemented for this OS.");
-        }
-    }
-}
-
-impl Default for ApplicationConfig {
-    fn default() -> Self {
-        ApplicationConfig {
-            path_to_gfxexport_bin: String::new(),
-            additional_gfxexport_args: String::new(),
-            last_used_swf_dir: String::new(),
         }
     }
 }
