@@ -17,6 +17,7 @@ pub struct NormalColors {
     pub primary: Color,
     pub secondary: Color,
     pub surface: Color,
+    pub dangerous: Color,
     pub alt: Color,
 }
 
@@ -25,6 +26,7 @@ pub struct BrightColors {
     pub primary: Color,
     pub secondary: Color,
     pub surface: Color,
+    pub dangerous: Color,
     pub alt: Color,
 }
 
@@ -40,20 +42,22 @@ impl Theme {
         match self {
             Self::DarkOrange => ColorPalette {
                 base: BaseColors {
-                    background: Color::from_rgb8(40, 40, 40),
-                    foreground: Color::from_rgb8(28, 28, 28),
+                    background: Color::from_rgb8(20, 20, 20),
+                    foreground: Color::from_rgb8(45, 45, 45),
                 },
                 normal: NormalColors {
                     primary: Color::from_rgb8(147, 89, 26),
-                    secondary: Color::from_rgb8(170, 121, 216),
+                    secondary: Color::from_rgb8(152, 51, 247),
+                    alt: Color::from_rgb8(21, 225, 157),
+                    dangerous: Color::from_rgb8(199, 53, 24),
                     surface: Color::from_rgb8(130, 130, 130),
-                    alt: Color::from_rgb8(153, 43, 43),
                 },
                 bright: BrightColors {
                     primary: Color::from_rgb8(244, 155, 53),
-                    secondary: Color::from_rgb8(152, 51, 247),
+                    secondary: Color::from_rgb8(170, 121, 216),
+                    alt: Color::from_rgb8(41, 245, 177),
+                    dangerous: Color::from_rgb8(219, 73, 44),
                     surface: Color::from_rgb8(224, 224, 224),
-                    alt: Color::from_rgb8(193, 48, 71),
                 },
             },
         }

@@ -427,6 +427,7 @@ impl MainLayout {
             .push(
                 Button::new(Text::new("Generate .gfx and .xml files").size(TEXT_SIZE))
                     .on_press(MainLayoutMessage::GenerateClicked)
+                    .style(style::Button::Special)
                     .width(Length::Fill),
             )
             .push(
@@ -562,6 +563,7 @@ impl MainLayout {
                                 .push(
                                     Button::new(Text::new("Remove parameter").size(TEXT_SIZE))
                                         .on_press(MainLayoutMessage::EntityListRemoveParameter(index, param_index))
+                                        .style(style::Button::Dangerous)
                                         .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
                                 ),
                         );
@@ -592,6 +594,7 @@ impl MainLayout {
                                     },
                                 )
                                 .size(TEXT_SIZE)
+                                .style(style::TextInput::Special)
                                 .padding(TEXT_INPUT_PADDING),
                             )
                             .spacing(ELEMENT_SPACING)
@@ -602,6 +605,7 @@ impl MainLayout {
                     .push(
                         Button::new(Text::new("Remove item").size(TEXT_SIZE))
                             .on_press(MainLayoutMessage::EntityListRemoveItem(index))
+                            .style(style::Button::Dangerous)
                             .width(Length::FillPortion(REMOVE_BUTTON_PORTION)),
                     ),
             );

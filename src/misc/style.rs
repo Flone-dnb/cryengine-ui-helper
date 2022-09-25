@@ -46,6 +46,8 @@ pub enum Button {
     #[default]
     Default,
     Inactive,
+    Special,
+    Dangerous,
 }
 
 impl button::StyleSheet for Theme {
@@ -70,6 +72,8 @@ impl button::StyleSheet for Theme {
         match style {
             Button::Default => active_appearance(None, p.bright.primary),
             Button::Inactive => active_appearance(None, p.normal.primary),
+            Button::Special => active_appearance(None, p.bright.alt),
+            Button::Dangerous => active_appearance(None, p.bright.dangerous),
         }
     }
 
@@ -86,6 +90,8 @@ impl button::StyleSheet for Theme {
         match style {
             Button::Default => hover_appearance(p.bright.primary, None),
             Button::Inactive => hover_appearance(p.normal.primary, None),
+            Button::Special => hover_appearance(p.bright.alt, None),
+            Button::Dangerous => hover_appearance(p.bright.dangerous, None),
         }
     }
 
@@ -120,7 +126,7 @@ impl scrollable::StyleSheet for Theme {
             border_width: 0.0,
             border_color: Color::TRANSPARENT,
             scroller: scrollable::Scroller {
-                color: self.palette().base.foreground,
+                color: self.palette().normal.primary,
                 border_radius: 0.0,
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
@@ -193,28 +199,48 @@ impl checkbox::StyleSheet for Theme {
 pub enum TextInput {
     #[default]
     Default,
+    Special,
 }
 
 impl text_input::StyleSheet for Theme {
     type Style = TextInput;
 
-    fn active(&self, _style: Self::Style) -> text_input::Appearance {
-        text_input::Appearance {
-            background: Background::Color(self.palette().base.foreground),
-            border_radius: 5.0,
-            border_width: 0.0,
-            border_color: self.palette().base.foreground,
+    fn active(&self, style: Self::Style) -> text_input::Appearance {
+        match style {
+            TextInput::Default => text_input::Appearance {
+                background: Background::Color(self.palette().base.foreground),
+                border_radius: 5.0,
+                border_width: 0.0,
+                border_color: self.palette().base.foreground,
+            },
+            TextInput::Special => text_input::Appearance {
+                background: Background::Color(self.palette().base.foreground),
+                border_radius: 5.0,
+                border_width: 1.0,
+                border_color: self.palette().normal.secondary,
+            },
         }
     }
 
-    fn focused(&self, _style: Self::Style) -> text_input::Appearance {
-        text_input::Appearance {
-            background: Background::Color(self.palette().base.foreground),
-            border_radius: 2.0,
-            border_width: 1.0,
-            border_color: Color {
-                a: 0.5,
-                ..self.palette().normal.primary
+    fn focused(&self, style: Self::Style) -> text_input::Appearance {
+        match style {
+            TextInput::Default => text_input::Appearance {
+                background: Background::Color(self.palette().base.foreground),
+                border_radius: 2.0,
+                border_width: 1.0,
+                border_color: Color {
+                    a: 0.5,
+                    ..self.palette().normal.primary
+                },
+            },
+            TextInput::Special => text_input::Appearance {
+                background: Background::Color(self.palette().base.foreground),
+                border_radius: 2.0,
+                border_width: 1.0,
+                border_color: Color {
+                    a: 0.5,
+                    ..self.palette().bright.secondary
+                },
             },
         }
     }
