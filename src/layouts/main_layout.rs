@@ -964,7 +964,9 @@ impl MainLayout {
 
     fn remove_list_parameter(&mut self, item_index: usize, param_index: usize) {
         match self.current_list {
-            EntityList::Functions => {}
+            EntityList::Functions => {
+                self.functions[item_index].parameters.remove(param_index);
+            }
             EntityList::Events => {
                 self.events[item_index].parameters.remove(param_index);
             }
