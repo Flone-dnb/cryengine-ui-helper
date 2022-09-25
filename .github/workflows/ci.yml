@@ -6,11 +6,23 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{matrix.os}}
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout repository
+      uses: actions/checkout@v3
+    - name: install GTK
+      run: |
+        sudo apt-get update
+        sudo apt-get install libgtk-3-dev
+    - name: fmt
+      run: cargo fmt --check --all
+    - name: build
+      run: cargo build
+    - name: clippy
+      run: cargo clippy
+  build-windows:
+    runs-on: windows-latest
     steps:
     - name: checkout repository
       uses: actions/checkout@v3
