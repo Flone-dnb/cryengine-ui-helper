@@ -3,12 +3,12 @@
 #![windows_subsystem = "windows"]
 
 use iced::window::Position;
-use iced::{application, executor, window, Application, Color, Command, Element, Settings, Size};
-use iced::{theme, Theme};
+use iced::{executor, window, Application, Command, Element, Renderer, Settings, Size};
 
 // Custom.
 use layouts::main_layout::*;
 use misc::config::ApplicationConfig;
+use misc::theme::Theme;
 
 mod layouts;
 mod managers;
@@ -51,21 +51,14 @@ impl Application for ApplicationState {
     }
 
     fn theme(&self) -> Theme {
-        Theme::Dark
-    }
-
-    fn style(&self) -> theme::Application {
-        theme::Application::Custom(|_theme| application::Appearance {
-            background_color: Color::BLACK,
-            text_color: Color::WHITE,
-        })
+        Theme::DarkOrange
     }
 
     fn title(&self) -> String {
         String::from("CRYENGINE UI Helper")
     }
 
-    fn view(&self) -> Element<ApplicationMessage> {
+    fn view(&self) -> Element<ApplicationMessage, Renderer<Theme>> {
         match self.current_layout {
             Layout::Main => self
                 .main_layout

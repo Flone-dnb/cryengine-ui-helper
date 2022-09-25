@@ -2,7 +2,7 @@
 use iced::{
     alignment::{Horizontal, Vertical},
     widget::{Button, Checkbox, Column, PickList, Row, Scrollable, Text, TextInput},
-    Command, Element, Length,
+    Command, Element, Length, Renderer,
 };
 use native_dialog::{FileDialog, MessageDialog, MessageType};
 
@@ -11,7 +11,11 @@ use std::process;
 use std::{fs, path::Path};
 
 // Custom.
-use crate::{managers::xml_manager::*, misc::config::ApplicationConfig, ApplicationMessage};
+use crate::{
+    managers::xml_manager::*,
+    misc::{config::ApplicationConfig, style, theme::Theme},
+    ApplicationMessage,
+};
 
 // Layout customization.
 const TEXT_SIZE: u16 = 20;
@@ -213,23 +217,23 @@ impl MainLayout {
         }
     }
 
-    pub fn view(&self) -> Element<MainLayoutMessage> {
+    pub fn view(&self) -> Element<MainLayoutMessage, Renderer<Theme>> {
         // Prepare buttons for categories.
         let mut functions_button = Button::new(Text::new("Functions").size(TEXT_SIZE))
             .on_press(MainLayoutMessage::ShowFunctions)
-            .style(iced::theme::Button::Secondary)
+            .style(style::Button::Inactive)
             .width(Length::Fill);
         let mut events_button = Button::new(Text::new("Events").size(TEXT_SIZE))
             .on_press(MainLayoutMessage::ShowEvents)
-            .style(iced::theme::Button::Secondary)
+            .style(style::Button::Inactive)
             .width(Length::Fill);
 
         // Highlight active.
         match self.current_list {
             EntityList::Functions => {
-                functions_button = functions_button.style(iced::theme::Button::Primary)
+                functions_button = functions_button.style(style::Button::Default)
             }
-            EntityList::Events => events_button = events_button.style(iced::theme::Button::Primary),
+            EntityList::Events => events_button = events_button.style(style::Button::Default),
         }
 
         Column::new()
@@ -491,7 +495,7 @@ impl MainLayout {
         Command::none()
     }
 
-    fn get_entity_list(&self) -> Element<MainLayoutMessage> {
+    fn get_entity_list(&self) -> Element<MainLayoutMessage, Renderer<Theme>> {
         let mut list = Column::new();
 
         // Get reference to vector to use.
