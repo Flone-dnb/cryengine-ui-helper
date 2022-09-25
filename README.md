@@ -1,6 +1,6 @@
 # CRYENGINE UI Helper
 
-TODO: screenshot
+![](screenshot.png?raw=true)
 
 Generate `.gfx` and `.xml` files for your UI `.swf` file in just a few clicks.
 
